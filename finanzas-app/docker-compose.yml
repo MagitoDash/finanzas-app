@@ -1,0 +1,19 @@
+services:
+  finanzas-app:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: always
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - API_KEY=${API_KEY}
+      - PORT=3000
+    volumes:
+      - finanzas-data:/app/data
+    ports:
+      - "3010:3000"
+
+volumes:
+  finanzas-data:

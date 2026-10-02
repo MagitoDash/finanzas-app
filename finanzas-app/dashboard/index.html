@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mis Finanzas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --text: #eef0f4; --muted: #9aa3b2;
+    --accent: #6ee7b7; --accent2: #60a5fa; --danger: #f87171; --border: rgba(255,255,255,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .tab { padding: 8px 14px; border-radius: 999px; background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer; border: 1px solid var(--border); }
+  .tab.active { background: var(--accent); color: #0f1115; font-weight: 600; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .card { background: var(--card); border-radius: 14px; padding: 18px; border: 1px solid var(--border); }
+  .stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat-value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+  .green { color: var(--accent); } .red { color: var(--danger); } .blue { color: var(--accent2); }
+  canvas { max-height: 260px; }
+  .list-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .list-item:last-child { border-bottom: none; }
+  .cat { color: var(--muted); font-size: 12px; }
+  #ia-box { white-space: pre-wrap; line-height: 1.5; font-size: 14px; }
+  button { background: var(--accent); color: #0f1115; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; }
+  button.secondary { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
+  button:disabled { opacity: 0.6; }
+  input, select { background: #0f1115; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .form-row input, .form-row select { flex: 1; min-width: 100px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; background: #0f1115; border: 1px solid var(--border); border-radius: 999px; padding: 6px 10px; font-size: 12px; margin: 3px; }
+  .chip button { padding: 2px 6px; font-size: 11px; background: var(--danger); color: white; }
+</style>
+</head>
+<body>
+  <h1>💰 Mis Finanzas</h1>
+  <div class="sub">Gestor financiero automático</div>
+
+  <div class="tabs">
+    <div class="tab active" data-view="resumen">Resumen</div>
+    <div class="tab" data-view="fijos">Gastos fijos</div>
+    <div class="tab" data-view="config">Configuración</div>
+  </div>
+
+  <!-- RESUMEN -->
+  <div class="view active" id="view-resumen">
+    <div class="grid" id="cards-moneda"></div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="stat-label" style="margin-bottom:12px;">Egresos por categoría (este mes)</div>
+        <canvas id="chart-categorias"></canvas>
+      </div>
+      <div class="card">
+        <div class="stat-label" style="margin-bottom:12px;">Egresos por medio de pago</div>
+        <canvas id="chart-medios"></canvas>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="stat-label" style="margin-bottom:8px;">Últimos movimientos</div>
+      <div id="lista-movimientos"></div>
+    </div>
+
+    <div class="card">
+      <div class="stat-label" style="margin-bottom:8px;">🧠 Asistente financiero</div>
+      <div id="ia-box">Tocá el botón para generar tu análisis del mes.</div>
+      <div style="margin-top:12px;"><button id="btn-ia" onclick="pedirAnalisisIA()">Analizar mi mes</button></div>
+    </div>
+  </div>
+
+  <!-- FIJOS -->
+  <div class="view" id="view-fijos">
+    <div class="card">
+      <div class="stat-label" style="margin-bottom:10px;">Agregar gasto fijo / suscripción</div>
+      <div class="form-row">
+        <input id="f-nombre" placeholder="Nombre (ej: Netflix)">
+        <input id="f-monto" type="number" placeholder="Monto">
+        <select id="f-medio"></select>
+        <select id="f-categoria"></select>
+        <input id="f-dia" type="number" min="1" max="28" placeholder="Día de cobro (1-28)">
+      </div>
+      <button onclick="agregarFijo()">Agregar</button>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <div class="stat-label" style="margin-bottom:8px;">Tus gastos fijos activos</div>
+      <div id="lista-fijos"></div>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="view" id="view-config">
+    <div class="card">
+      <div class="stat-label" style="margin-bottom:10px;">Medios de pago (tarjetas, efectivo, dólares)</div>
+      <div class="form-row">
+        <input id="m-nombre" placeholder="Nombre (ej: Tarjeta Visa)">
+        <select id="m-moneda"><option value="ARS">Pesos (ARS)</option><option value="USD">Dólares (USD)</option></select>
+        <button onclick="agregarMedio()">Agregar</button>
+      </div>
+      <div id="lista-medios"></div>
+    </div>
+  </div>
+
+<script>
+const fmt = (n, mon) => (mon === 'USD' ? 'U$D ' : '$') + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+let CATEGORIAS = [];
+let MEDIOS = [];
+let chartCat, chartMedios;
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('view-' + t.dataset.view).classList.add('active');
+});
+
+async function cargarBase() {
+  CATEGORIAS = await fetch('/api/categorias').then(r => r.json());
+  MEDIOS = await fetch('/api/medios').then(r => r.json());
+  const selMedio = document.getElementById('f-medio');
+  selMedio.innerHTML = MEDIOS.map(m => `<option value="${m.nombre}">${m.nombre} (${m.moneda})</option>`).join('');
+  const selCat = document.getElementById('f-categoria');
+  selCat.innerHTML = CATEGORIAS.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+async function cargarResumen() {
+  const r = await fetch('/api/resumen-mes').then(r => r.json());
+
+  const cardsHtml = Object.entries(r.porMoneda).map(([mon, v]) => `
+    <div class="card">
+      <div class="stat-label">Balance ${mon} (este mes)</div>
+      <div class="stat-value ${v.ingresos - v.egresos >= 0 ? 'green' : 'red'}">${fmt(v.ingresos - v.egresos, mon)}</div>
+      <div class="cat" style="margin-top:6px;">Ingresos: ${fmt(v.ingresos, mon)} · Egresos: ${fmt(v.egresos, mon)}</div>
+    </div>`).join('');
+  document.getElementById('cards-moneda').innerHTML = cardsHtml || '<div class="card cat">Sin movimientos este mes todavía</div>';
+
+  const movHtml = r.movimientos.map(m => `
+    <div class="list-item">
+      <span>${m.tipo === 'Ingreso' ? '🟢' : '🔴'} ${m.descripcion || '-'} <span class="cat">(${m.categoria}${m.medio_nombre ? ' · ' + m.medio_nombre : ''})</span></span>
+      <span>${fmt(m.monto, m.moneda)}</span>
+    </div>`).join('') || '<div class="cat">Sin movimientos este mes</div>';
+  document.getElementById('lista-movimientos').innerHTML = movHtml;
+
+  if (chartCat) chartCat.destroy();
+  chartCat = new Chart(document.getElementById('chart-categorias'), {
+    type: 'doughnut',
+    data: { labels: Object.keys(r.porCategoria), datasets: [{ data: Object.values(r.porCategoria), backgroundColor: ['#6ee7b7','#60a5fa','#fbbf24','#f87171','#a78bfa','#34d399','#f472b6'] }] },
+    options: { plugins: { legend: { labels: { color: '#eef0f4' } } } }
+  });
+
+  if (chartMedios) chartMedios.destroy();
+  chartMedios = new Chart(document.getElementById('chart-medios'), {
+    type: 'bar',
+    data: { labels: Object.keys(r.porMedio), datasets: [{ data: Object.values(r.porMedio), backgroundColor: '#60a5fa' }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9aa3b2' } }, y: { ticks: { color: '#9aa3b2' } } } }
+  });
+
+  const fijosHtml = r.fijos.map(f => `<div class="list-item"><span>${f.nombre}</span><span>${fmt(f.monto, f.moneda)} · día ${f.dia_cobro}</span></div>`).join('') || '<div class="cat">Sin gastos fijos</div>';
+  document.getElementById('lista-fijos').innerHTML = fijosHtml;
+}
+
+async function pedirAnalisisIA() {
+  const btn = document.getElementById('btn-ia'); const box = document.getElementById('ia-box');
+  btn.disabled = true; box.textContent = 'Analizando...';
+  try {
+    const r = await fetch('/api/resumen-ia').then(r => r.json());
+    box.textContent = r.texto || 'No se pudo generar el análisis.';
+  } catch (e) { box.textContent = 'Error al generar el análisis.'; }
+  btn.disabled = false;
+}
+
+async function agregarFijo() {
+  const body = {
+    nombre: document.getElementById('f-nombre').value,
+    monto: document.getElementById('f-monto').value,
+    medio_pago: document.getElementById('f-medio').value,
+    categoria: document.getElementById('f-categoria').value,
+    dia_cobro: document.getElementById('f-dia').value,
+  };
+  if (!body.nombre || !body.monto || !body.dia_cobro) return alert('Completá nombre, monto y día de cobro');
+  await fetch('/api/fijos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  document.getElementById('f-nombre').value = ''; document.getElementById('f-monto').value = ''; document.getElementById('f-dia').value = '';
+  cargarResumen();
+}
+
+async function agregarMedio() {
+  const nombre = document.getElementById('m-nombre').value;
+  const moneda = document.getElementById('m-moneda').value;
+  if (!nombre) return alert('Poné un nombre');
+  await fetch('/api/medios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre, moneda }) });
+  document.getElementById('m-nombre').value = '';
+  await cargarBase(); renderMedios();
+}
+
+function renderMedios() {
+  document.getElementById('lista-medios').innerHTML = MEDIOS.map(m =>
+    `<span class="chip">${m.nombre} (${m.moneda}) <button onclick="borrarMedio(${m.id})">✕</button></span>`
+  ).join('');
+}
+
+async function borrarMedio(id) {
+  await fetch('/api/medios/' + id, { method: 'DELETE' });
+  await cargarBase(); renderMedios();
+}
+
+(async () => { await cargarBase(); renderMedios(); await cargarResumen(); })();
+</script>
+</body>
+</html>
