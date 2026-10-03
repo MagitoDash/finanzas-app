@@ -5,6 +5,7 @@ const CATEGORIAS = {
   Hogar: ['alquiler', 'expensas', 'luz', 'gas', 'agua', 'internet'],
   Salud: ['farmacia', 'medico', 'obra social'],
   Ropa: ['ropa', 'zapatillas'],
+  Suscripcion: ['netflix', 'spotify', 'disney', 'hbo', 'youtube premium', 'suscripcion'],
 };
 
 function inferirCategoria(texto) {
@@ -15,6 +16,8 @@ function inferirCategoria(texto) {
   return 'Otros';
 }
 
-const LISTA_CATEGORIAS = [...Object.keys(CATEGORIAS), 'Ingreso', 'Otros'];
+// Categorías para Egreso. "Ingreso" se usa aparte para movimientos de tipo Ingreso.
+const LISTA_CATEGORIAS_EGRESO = [...Object.keys(CATEGORIAS), 'Otros'];
+const LISTA_CATEGORIAS_INGRESO = ['Sueldo', 'Freelance', 'Venta', 'Regalo', 'Otros'];
 
-module.exports = { inferirCategoria, LISTA_CATEGORIAS };
+module.exports = { inferirCategoria, LISTA_CATEGORIAS_EGRESO, LISTA_CATEGORIAS_INGRESO };

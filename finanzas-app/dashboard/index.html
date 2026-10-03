@@ -8,7 +8,7 @@
 <style>
   :root {
     --bg: #0f1115; --card: #171a21; --text: #eef0f4; --muted: #9aa3b2;
-    --accent: #6ee7b7; --accent2: #60a5fa; --danger: #f87171; --border: rgba(255,255,255,0.08);
+    --accent: #6ee7b7; --accent2: #60a5fa; --danger: #f87171; --amber: #fbbf24; --border: rgba(255,255,255,0.08);
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
@@ -19,24 +19,29 @@
   .tab.active { background: var(--accent); color: #0f1115; font-weight: 600; }
   .view { display: none; }
   .view.active { display: block; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
   .card { background: var(--card); border-radius: 14px; padding: 18px; border: 1px solid var(--border); }
   .stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
   .stat-value { font-size: 26px; font-weight: 700; margin-top: 4px; }
-  .green { color: var(--accent); } .red { color: var(--danger); } .blue { color: var(--accent2); }
+  .green { color: var(--accent); } .red { color: var(--danger); } .blue { color: var(--accent2); } .amber { color: var(--amber); }
   canvas { max-height: 260px; }
-  .list-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; gap: 8px; }
   .list-item:last-child { border-bottom: none; }
   .cat { color: var(--muted); font-size: 12px; }
-  #ia-box { white-space: pre-wrap; line-height: 1.5; font-size: 14px; }
+  #ia-box { white-space: pre-wrap; line-height: 1.5; font-size: 12px; font-family: ui-monospace, monospace; background: #0f1115; border-radius: 8px; padding: 12px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); }
   button { background: var(--accent); color: #0f1115; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; }
   button.secondary { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
+  button.danger-btn { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 4px 8px; font-size: 11px; }
   button:disabled { opacity: 0.6; }
   input, select { background: #0f1115; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
   .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .form-row input, .form-row select { flex: 1; min-width: 100px; }
   .chip { display: inline-flex; align-items: center; gap: 6px; background: #0f1115; border: 1px solid var(--border); border-radius: 999px; padding: 6px 10px; font-size: 12px; margin: 3px; }
   .chip button { padding: 2px 6px; font-size: 11px; background: var(--danger); color: white; }
+  .mov-actions { display: flex; gap: 6px; }
+  .mov-actions button { padding: 4px 8px; font-size: 11px; }
+  .progress-bar { background: #0f1115; border-radius: 999px; height: 8px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { background: var(--accent); height: 100%; }
 </style>
 </head>
 <body>
@@ -45,6 +50,8 @@
 
   <div class="tabs">
     <div class="tab active" data-view="resumen">Resumen</div>
+    <div class="tab" data-view="saldos">Saldos</div>
+    <div class="tab" data-view="reservas">Reservas</div>
     <div class="tab" data-view="fijos">Gastos fijos</div>
     <div class="tab" data-view="config">Configuración</div>
   </div>
@@ -65,15 +72,50 @@
     </div>
 
     <div class="card" style="margin-bottom:16px;">
-      <div class="stat-label" style="margin-bottom:8px;">Últimos movimientos</div>
+      <div class="stat-label" style="margin-bottom:12px;">Histórico mensual</div>
+      <canvas id="chart-historico"></canvas>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="stat-label" style="margin-bottom:8px;">Movimientos de este mes</div>
       <div id="lista-movimientos"></div>
     </div>
 
     <div class="card">
-      <div class="stat-label" style="margin-bottom:8px;">🧠 Asistente financiero</div>
-      <div id="ia-box">Tocá el botón para generar tu análisis del mes.</div>
-      <div style="margin-top:12px;"><button id="btn-ia" onclick="pedirAnalisisIA()">Analizar mi mes</button></div>
+      <div class="stat-label" style="margin-bottom:8px;">🧠 Analizar mi mes</div>
+      <div class="cat" style="margin-bottom:10px;">Generá un texto con todos tus datos del mes y pegalo en la IA que prefieras (Claude, ChatGPT, etc.) para que te dé un análisis. No usa ninguna API paga.</div>
+      <div id="ia-box">Tocá el botón para generar el texto.</div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button onclick="generarPrompt()">Generar texto</button>
+        <button class="secondary" onclick="copiarPrompt()">Copiar</button>
+      </div>
     </div>
+  </div>
+
+  <!-- SALDOS -->
+  <div class="view" id="view-saldos">
+    <div class="card" style="margin-bottom:14px;">
+      <div class="cat">El saldo se calcula solo, en base a los ingresos y egresos que cargaste en cada medio de pago. Si es la primera vez, cargá un "Ingreso" inicial en cada tarjeta/efectivo con el monto que tenías, para que el saldo arranque correcto.</div>
+    </div>
+    <div class="grid" id="cards-saldos"></div>
+  </div>
+
+  <!-- RESERVAS -->
+  <div class="view" id="view-reservas">
+    <div class="card" style="margin-bottom:14px;">
+      <div class="stat-label" style="margin-bottom:10px;">Crear reserva / ahorro</div>
+      <div class="form-row">
+        <input id="r-nombre" placeholder="Nombre (ej: Viaje a Bariloche)">
+        <input id="r-descripcion" placeholder="Descripción / para qué es">
+      </div>
+      <div class="form-row">
+        <input id="r-objetivo" type="number" placeholder="Meta (opcional)">
+        <input id="r-fecha" type="date" placeholder="Fecha objetivo (opcional)">
+        <select id="r-moneda"><option value="ARS">Pesos (ARS)</option><option value="USD">Dólares (USD)</option></select>
+      </div>
+      <button onclick="crearReserva()">Crear reserva</button>
+    </div>
+    <div id="lista-reservas"></div>
   </div>
 
   <!-- FIJOS -->
@@ -83,6 +125,8 @@
       <div class="form-row">
         <input id="f-nombre" placeholder="Nombre (ej: Netflix)">
         <input id="f-monto" type="number" placeholder="Monto">
+      </div>
+      <div class="form-row">
         <select id="f-medio"></select>
         <select id="f-categoria"></select>
         <input id="f-dia" type="number" min="1" max="28" placeholder="Día de cobro (1-28)">
@@ -110,15 +154,18 @@
 
 <script>
 const fmt = (n, mon) => (mon === 'USD' ? 'U$D ' : '$') + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
-let CATEGORIAS = [];
+let CATEGORIAS = { egreso: [], ingreso: [] };
 let MEDIOS = [];
-let chartCat, chartMedios;
+let chartCat, chartMedios, chartHistorico;
+let ultimoPrompt = '';
 
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
   document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
   t.classList.add('active');
   document.getElementById('view-' + t.dataset.view).classList.add('active');
+  if (t.dataset.view === 'saldos') cargarSaldos();
+  if (t.dataset.view === 'reservas') cargarReservas();
 });
 
 async function cargarBase() {
@@ -127,7 +174,11 @@ async function cargarBase() {
   const selMedio = document.getElementById('f-medio');
   selMedio.innerHTML = MEDIOS.map(m => `<option value="${m.nombre}">${m.nombre} (${m.moneda})</option>`).join('');
   const selCat = document.getElementById('f-categoria');
-  selCat.innerHTML = CATEGORIAS.map(c => `<option value="${c}">${c}</option>`).join('');
+  selCat.innerHTML = CATEGORIAS.egreso.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function colorPalette() {
+  return ['#6ee7b7','#60a5fa','#fbbf24','#f87171','#a78bfa','#34d399','#f472b6','#38bdf8'];
 }
 
 async function cargarResumen() {
@@ -137,45 +188,153 @@ async function cargarResumen() {
     <div class="card">
       <div class="stat-label">Balance ${mon} (este mes)</div>
       <div class="stat-value ${v.ingresos - v.egresos >= 0 ? 'green' : 'red'}">${fmt(v.ingresos - v.egresos, mon)}</div>
-      <div class="cat" style="margin-top:6px;">Ingresos: ${fmt(v.ingresos, mon)} · Egresos: ${fmt(v.egresos, mon)}</div>
+      <div class="cat" style="margin-top:6px;">🟢 Ingresos: ${fmt(v.ingresos, mon)} · 🔴 Egresos: ${fmt(v.egresos, mon)}</div>
     </div>`).join('');
   document.getElementById('cards-moneda').innerHTML = cardsHtml || '<div class="card cat">Sin movimientos este mes todavía</div>';
 
   const movHtml = r.movimientos.map(m => `
     <div class="list-item">
       <span>${m.tipo === 'Ingreso' ? '🟢' : '🔴'} ${m.descripcion || '-'} <span class="cat">(${m.categoria}${m.medio_nombre ? ' · ' + m.medio_nombre : ''})</span></span>
-      <span>${fmt(m.monto, m.moneda)}</span>
+      <span style="display:flex; align-items:center; gap:8px;">
+        ${fmt(m.monto, m.moneda)}
+        <span class="mov-actions"><button class="danger-btn" onclick="borrarMovimiento(${m.id})">Borrar</button></span>
+      </span>
     </div>`).join('') || '<div class="cat">Sin movimientos este mes</div>';
   document.getElementById('lista-movimientos').innerHTML = movHtml;
 
+  const totalCat = Object.values(r.porCategoria).reduce((a, b) => a + b, 0) || 1;
+  const labelsCat = Object.keys(r.porCategoria).map(k => `${k} (${Math.round(r.porCategoria[k] / totalCat * 100)}%)`);
   if (chartCat) chartCat.destroy();
   chartCat = new Chart(document.getElementById('chart-categorias'), {
     type: 'doughnut',
-    data: { labels: Object.keys(r.porCategoria), datasets: [{ data: Object.values(r.porCategoria), backgroundColor: ['#6ee7b7','#60a5fa','#fbbf24','#f87171','#a78bfa','#34d399','#f472b6'] }] },
-    options: { plugins: { legend: { labels: { color: '#eef0f4' } } } }
+    data: { labels: labelsCat, datasets: [{ data: Object.values(r.porCategoria), backgroundColor: colorPalette() }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { color: '#eef0f4', font: { size: 11 } } } } }
   });
 
+  const totalMedio = Object.values(r.porMedio).reduce((a, b) => a + b, 0) || 1;
+  const labelsMedio = Object.keys(r.porMedio).map(k => `${k} (${Math.round(r.porMedio[k] / totalMedio * 100)}%)`);
   if (chartMedios) chartMedios.destroy();
   chartMedios = new Chart(document.getElementById('chart-medios'), {
-    type: 'bar',
-    data: { labels: Object.keys(r.porMedio), datasets: [{ data: Object.values(r.porMedio), backgroundColor: '#60a5fa' }] },
-    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9aa3b2' } }, y: { ticks: { color: '#9aa3b2' } } } }
+    type: 'doughnut',
+    data: { labels: labelsMedio, datasets: [{ data: Object.values(r.porMedio), backgroundColor: colorPalette() }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { color: '#eef0f4', font: { size: 11 } } } } }
   });
 
   const fijosHtml = r.fijos.map(f => `<div class="list-item"><span>${f.nombre}</span><span>${fmt(f.monto, f.moneda)} · día ${f.dia_cobro}</span></div>`).join('') || '<div class="cat">Sin gastos fijos</div>';
   document.getElementById('lista-fijos').innerHTML = fijosHtml;
+
+  await cargarHistorico();
 }
 
-async function pedirAnalisisIA() {
-  const btn = document.getElementById('btn-ia'); const box = document.getElementById('ia-box');
-  btn.disabled = true; box.textContent = 'Analizando...';
-  try {
-    const r = await fetch('/api/resumen-ia').then(r => r.json());
-    box.textContent = r.texto || 'No se pudo generar el análisis.';
-  } catch (e) { box.textContent = 'Error al generar el análisis.'; }
-  btn.disabled = false;
+async function cargarHistorico() {
+  const rows = await fetch('/api/historico').then(r => r.json());
+  const porPeriodo = {};
+  for (const row of rows) {
+    porPeriodo[row.periodo] = porPeriodo[row.periodo] || { egresos: 0, ingresos: 0 };
+    porPeriodo[row.periodo].egresos += row.egresos;
+    porPeriodo[row.periodo].ingresos += row.ingresos;
+  }
+  const periodos = Object.keys(porPeriodo).sort().slice(-6);
+  if (chartHistorico) chartHistorico.destroy();
+  chartHistorico = new Chart(document.getElementById('chart-historico'), {
+    type: 'bar',
+    data: {
+      labels: periodos,
+      datasets: [
+        { label: 'Ingresos', data: periodos.map(p => porPeriodo[p].ingresos), backgroundColor: '#6ee7b7' },
+        { label: 'Egresos', data: periodos.map(p => porPeriodo[p].egresos), backgroundColor: '#f87171' },
+      ]
+    },
+    options: { plugins: { legend: { labels: { color: '#eef0f4' } } }, scales: { x: { ticks: { color: '#9aa3b2' } }, y: { ticks: { color: '#9aa3b2' } } } }
+  });
 }
 
+async function generarPrompt() {
+  const box = document.getElementById('ia-box');
+  box.textContent = 'Generando...';
+  const r = await fetch('/api/prompt-analisis').then(r => r.json());
+  ultimoPrompt = r.texto || '';
+  box.textContent = ultimoPrompt || 'No hay datos suficientes.';
+}
+
+function copiarPrompt() {
+  if (!ultimoPrompt) return alert('Primero tocá "Generar texto"');
+  navigator.clipboard.writeText(ultimoPrompt).then(() => alert('Copiado ✅')).catch(() => alert('No se pudo copiar, selecciona el texto manualmente'));
+}
+
+async function borrarMovimiento(id) {
+  if (!confirm('¿Borrar este movimiento?')) return;
+  await fetch('/api/movimiento/' + id, { method: 'DELETE' });
+  cargarResumen();
+}
+
+// ---------- SALDOS ----------
+async function cargarSaldos() {
+  const saldos = await fetch('/api/saldos').then(r => r.json());
+  document.getElementById('cards-saldos').innerHTML = saldos.map(s => `
+    <div class="card">
+      <div class="stat-label">${s.nombre}</div>
+      <div class="stat-value ${s.saldo >= 0 ? 'green' : 'red'}">${fmt(s.saldo, s.moneda)}</div>
+    </div>`).join('');
+}
+
+// ---------- RESERVAS ----------
+async function cargarReservas() {
+  const reservas = await fetch('/api/reservas').then(r => r.json());
+  document.getElementById('lista-reservas').innerHTML = reservas.map(r => {
+    const pct = r.objetivo_monto ? Math.min(100, Math.round(r.saldo / r.objetivo_monto * 100)) : null;
+    return `
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:start;">
+        <div>
+          <div class="stat-label">${r.nombre}</div>
+          <div class="stat-value blue">${fmt(r.saldo, r.moneda)}</div>
+          <div class="cat" style="margin-top:4px;">${r.descripcion || ''}</div>
+        </div>
+        <button class="danger-btn" onclick="borrarReserva(${r.id})">Borrar</button>
+      </div>
+      ${r.objetivo_monto ? `<div class="cat" style="margin-top:8px;">Meta: ${fmt(r.objetivo_monto, r.moneda)} (${pct}%)${r.fecha_objetivo ? ' · ' + r.fecha_objetivo : ''}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>` : ''}
+      <div class="form-row" style="margin-top:14px;">
+        <select id="rm-tipo-${r.id}"><option value="Aporte">Aportar</option><option value="Retiro">Retirar</option></select>
+        <input id="rm-monto-${r.id}" type="number" placeholder="Monto">
+        <select id="rm-medio-${r.id}">${MEDIOS.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('')}</select>
+      </div>
+      <button onclick="moverReserva(${r.id})">Confirmar movimiento</button>
+    </div>`;
+  }).join('') || '<div class="card cat">Todavía no creaste ninguna reserva</div>';
+}
+
+async function crearReserva() {
+  const body = {
+    nombre: document.getElementById('r-nombre').value,
+    descripcion: document.getElementById('r-descripcion').value,
+    objetivo_monto: document.getElementById('r-objetivo').value,
+    fecha_objetivo: document.getElementById('r-fecha').value,
+    moneda: document.getElementById('r-moneda').value,
+  };
+  if (!body.nombre) return alert('Poné un nombre para la reserva');
+  await fetch('/api/reservas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  document.getElementById('r-nombre').value = ''; document.getElementById('r-descripcion').value = ''; document.getElementById('r-objetivo').value = '';
+  cargarReservas();
+}
+
+async function moverReserva(id) {
+  const tipo = document.getElementById(`rm-tipo-${id}`).value;
+  const monto = document.getElementById(`rm-monto-${id}`).value;
+  const medio_pago = document.getElementById(`rm-medio-${id}`).value;
+  if (!monto || monto <= 0) return alert('Poné un monto válido');
+  await fetch(`/api/reservas/${id}/movimiento`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, monto, medio_pago }) });
+  cargarReservas();
+}
+
+async function borrarReserva(id) {
+  if (!confirm('¿Borrar esta reserva?')) return;
+  await fetch('/api/reservas/' + id, { method: 'DELETE' });
+  cargarReservas();
+}
+
+// ---------- FIJOS ----------
 async function agregarFijo() {
   const body = {
     nombre: document.getElementById('f-nombre').value,
@@ -190,6 +349,7 @@ async function agregarFijo() {
   cargarResumen();
 }
 
+// ---------- CONFIG ----------
 async function agregarMedio() {
   const nombre = document.getElementById('m-nombre').value;
   const moneda = document.getElementById('m-moneda').value;

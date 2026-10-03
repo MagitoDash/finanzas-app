@@ -10,7 +10,7 @@ db.exec(`
 CREATE TABLE IF NOT EXISTS medios_pago (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre TEXT NOT NULL UNIQUE,
-  moneda TEXT NOT NULL DEFAULT 'ARS', -- ARS | USD
+  moneda TEXT NOT NULL DEFAULT 'ARS',
   activo INTEGER NOT NULL DEFAULT 1
 );
 
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS movimientos (
   medio_pago_id INTEGER,
   categoria TEXT NOT NULL DEFAULT 'Otros',
   descripcion TEXT,
-  origen TEXT NOT NULL DEFAULT 'shortcut', -- shortcut | telegram | web
+  origen TEXT NOT NULL DEFAULT 'shortcut',
   fecha TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   FOREIGN KEY (medio_pago_id) REFERENCES medios_pago(id)
 );
@@ -34,12 +34,35 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
   categoria TEXT NOT NULL DEFAULT 'Suscripcion',
   dia_cobro INTEGER NOT NULL,
   activo INTEGER NOT NULL DEFAULT 1,
-  ultimo_periodo TEXT,             -- 'YYYY-MM' del último mes ya agregado
+  ultimo_periodo TEXT,
+  FOREIGN KEY (medio_pago_id) REFERENCES medios_pago(id)
+);
+
+CREATE TABLE IF NOT EXISTS reservas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL,
+  descripcion TEXT,
+  objetivo_monto REAL,
+  fecha_objetivo TEXT,
+  moneda TEXT NOT NULL DEFAULT 'ARS',
+  activo INTEGER NOT NULL DEFAULT 1,
+  fecha_creacion TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS movimientos_reserva (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reserva_id INTEGER NOT NULL,
+  tipo TEXT NOT NULL,               -- Aporte | Retiro
+  monto REAL NOT NULL,
+  medio_pago_id INTEGER,
+  descripcion TEXT,
+  fecha TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (reserva_id) REFERENCES reservas(id),
   FOREIGN KEY (medio_pago_id) REFERENCES medios_pago(id)
 );
 `);
 
-// Medios de pago iniciales, solo si la tabla está vacía
+// Medios de pago iniciales, solo si la tabla está vacía (no pisa los 13 que ya cargó el usuario)
 const count = db.prepare('SELECT COUNT(*) as n FROM medios_pago').get().n;
 if (count === 0) {
   const insertar = db.prepare('INSERT INTO medios_pago (nombre, moneda) VALUES (?, ?)');

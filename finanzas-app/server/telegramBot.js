@@ -1,7 +1,8 @@
 const TelegramBot = require('node-telegram-bot-api');
 const db = require('./db');
 const { inferirCategoria } = require('./categorias');
-const { generarResumenIA } = require('./claudeAssistant');
+const { generarPromptAnalisis } = require('./promptAnalisis');
+const { calcularSaldos } = require('./saldos');
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID_PERMITIDO = process.env.TELEGRAM_CHAT_ID;
@@ -30,10 +31,11 @@ function iniciarBot() {
   bot.onText(/\/start/, (msg) => {
     bot.sendMessage(msg.chat.id,
       '👋 Registrame un gasto en efectivo mandando algo como: "1500 asado con amigos"\n' +
-      '(para tarjetas o dólares, mejor usá el Atajo de iPhone o el dashboard)\n\n' +
+      '(para tarjetas o dólares, usá el Atajo de iPhone o el dashboard)\n\n' +
       '/hoy — total gastado hoy\n' +
       '/mes — total gastado este mes\n' +
-      '/resumen — análisis del mes con el asistente'
+      '/saldos — cuánta plata tenés en cada medio\n' +
+      '/resumen — texto para pegar en una IA y que te analice el mes'
     );
   });
 
@@ -47,14 +49,15 @@ function iniciarBot() {
     bot.sendMessage(msg.chat.id, `📊 Gastado este mes: $${row.total.toFixed(2)}`);
   });
 
-  bot.onText(/\/resumen/, async (msg) => {
-    bot.sendMessage(msg.chat.id, '🧠 Analizando tus movimientos del mes...');
-    try {
-      const resumen = await generarResumenIA();
-      bot.sendMessage(msg.chat.id, resumen);
-    } catch (e) {
-      bot.sendMessage(msg.chat.id, 'No pude generar el resumen ahora. Probá de nuevo en un rato.');
-    }
+  bot.onText(/\/saldos/, (msg) => {
+    const saldos = calcularSaldos();
+    const texto = saldos.map((s) => `${s.nombre}: $${s.saldo.toFixed(2)} ${s.moneda}`).join('\n');
+    bot.sendMessage(msg.chat.id, `💳 Saldos:\n${texto}`);
+  });
+
+  bot.onText(/\/resumen/, (msg) => {
+    const prompt = generarPromptAnalisis();
+    bot.sendMessage(msg.chat.id, `Copiá este texto y pegalo en tu IA favorita:\n\n${prompt}`);
   });
 
   bot.on('message', (msg) => {

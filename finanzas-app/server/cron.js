@@ -19,7 +19,7 @@ function revisarFijos() {
   let agregados = 0;
   for (const f of fijos) {
     if (f.dia_cobro !== diaHoy) continue;
-    if (f.ultimo_periodo === periodo) continue; // ya se agregó este mes
+    if (f.ultimo_periodo === periodo) continue;
     insertar.run(f.monto, f.medio_pago_id, f.categoria, `${f.nombre} (automático)`);
     marcar.run(periodo, f.id);
     agregados++;
@@ -29,8 +29,8 @@ function revisarFijos() {
 }
 
 function iniciarRevisionDiaria() {
-  revisarFijos(); // corre una vez al levantar el servidor, por si estuvo apagado el día del cobro
-  setInterval(revisarFijos, 1000 * 60 * 60 * 12); // y despues cada 12hs
+  revisarFijos();
+  setInterval(revisarFijos, 1000 * 60 * 60 * 12);
 }
 
 module.exports = { revisarFijos, iniciarRevisionDiaria };

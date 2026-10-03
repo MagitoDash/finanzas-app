@@ -1,89 +1,70 @@
 # Mis Finanzas — Gestor financiero automático
 
-Web + API + bot de Telegram + asistente con IA, todo conectado a un Atajo de
-iPhone. Los gastos fijos/suscripciones se agregan solos cada mes.
+Web + API + bot de Telegram, enlazado al Atajo de iPhone. Gastos fijos
+automáticos, saldos por medio de pago y reservas/ahorros.
+
+## Qué cambió en esta versión
+
+- **Ya no usa ninguna API paga.** El botón "Analizar mi mes" genera un
+  texto con todos tus datos y lo copiás a mano en la IA que quieras
+  (Claude, ChatGPT, etc.). Por eso `ANTHROPIC_API_KEY` ya no es necesaria
+  — podés sacarla de las variables de entorno en Dokploy si querés.
+- **Pestaña Saldos**: cuánta plata tenés en cada medio de pago (tarjetas,
+  efectivo, dólares), calculado solo a partir de tus movimientos.
+- **Pestaña Reservas**: creá ahorros con nombre, descripción, meta y
+  fecha, y movés plata hacia/desde un medio de pago.
+- **Gráficos con porcentaje** en las categorías y medios de pago, más un
+  histórico de ingresos vs egresos.
+- **Borrar movimientos** directo desde el dashboard (ya no hace falta la
+  terminal).
+- Internamente, ya no usa `node-fetch` ni llama a ninguna IA desde el
+  servidor.
 
 ## 1. Variables de entorno
 
 ```
 TELEGRAM_BOT_TOKEN=tu_token_de_botfather   # opcional, para carga rápida por chat
 TELEGRAM_CHAT_ID=tu_chat_id                # opcional
-ANTHROPIC_API_KEY=tu_api_key               # console.anthropic.com
 API_KEY=una_clave_larga_inventada          # protege el endpoint que usa el Atajo
 ```
 
-## 2. Desplegar en Dokploy
+## 2. Desplegar
 
-1. Subí esta carpeta a un repo (o a tu Docker Registry de Dokploy).
-2. Creá una app tipo **Docker Compose**, apuntá al repo, cargá las
-   variables de entorno del paso 1.
-3. Deploy. Por defecto queda en el puerto `3010` de tu PC1
-   (`192.168.1.200:3010`).
+Subí los cambios a tu repo `MagitoDash/finanzas-app` y redeployá desde
+Dokploy como siempre. La base de datos (`finanzas-data` en el volumen)
+no se borra: tus 13 medios de pago y movimientos ya cargados siguen ahí,
+las tablas nuevas (`reservas`, `movimientos_reserva`) se crean solas al
+arrancar.
 
-## 3. Subdominio en tu dominio ya existente (storecofusion.com)
+## 3. Saldo por medio de pago — cómo arranca bien
 
-Como ya tenés `storecofusion.com` en Cloudflare con un túnel corriendo para
-tu tienda EcoFusion, agregamos un subdominio nuevo al mismo túnel, sin
-tocar nada de lo que ya funciona:
+El saldo de cada tarjeta/efectivo se calcula como: Ingresos - Egresos
+cargados en ese medio (y los movimientos hacia/desde reservas). Como
+recién empezás a usar el sistema, **cargá un "Ingreso" inicial** en cada
+medio de pago con el monto que tenías antes de usar la app, así el saldo
+arranca correcto. Podés hacerlo desde el dashboard o con el Atajo.
 
-1. Entrá a **Cloudflare Zero Trust → Networks → Tunnels**.
-2. Elegí el túnel que ya tenés corriendo (el mismo de tu tienda).
-3. Andá a la pestaña **Public Hostname → Add a public hostname**.
-4. Subdomain: `finanzas` — Domain: `storecofusion.com`.
-5. Service: **HTTP**, y en la URL apuntá al servicio interno de esta app
-   (según cómo lo desplegaste: `localhost:3010`, la IP de PC1:3010, o el
-   nombre del servicio de Dokploy si están en la misma red de Docker).
-6. Guardar. En un minuto, `https://finanzas.storecofusion.com` ya apunta a
-   tu gestor financiero, siempre disponible, sin exponer nada más.
+## 4. Reservas / ahorros
 
-## 4. Uso por Telegram (carga rápida en efectivo)
+En la pestaña **Reservas** creás una (ej: "Viaje a Bariloche", meta
+$300.000, fecha objetivo). Para mover plata hacia ella elegís "Aportar",
+el monto y de qué medio de pago sale — eso resta del saldo de ese medio y
+suma al de la reserva. "Retirar" hace lo inverso. La barra de progreso te
+muestra cuánto llevás de la meta.
 
-Mandale al bot algo como `1500 asado con amigos` y lo registra como
-Egreso en efectivo, categorizado solo. `/hoy`, `/mes`, `/resumen`.
+## 5. Atajo de iPhone — recordatorio de las 5 preguntas
 
-## 5. Atajo de iPhone — las 5 preguntas
+El Atajo sigue mandando a `https://finanzas.storecofusion.com/api/movimiento`
+con: `tipo`, `descripcion`, `monto`, `categoria`, `medio_pago`. El nombre
+en `medio_pago` tiene que coincidir exactamente con alguno de tus 13
+medios de pago cargados (Efectivo, Dólares, Naranja X, BBVA Débito, BBVA
+Crédito, Santander, Cencosud, Galicia, Mercado Pago, Supervielle, UALA,
+Patagonia, Cocos). Si agregás uno nuevo desde Configuración, actualizá
+también las opciones del menú en el Atajo.
 
-El Atajo pregunta, en este orden: **tipo de movimiento → qué es → cuánto →
-categoría → medio de pago**, y manda todo junto al servidor.
+## 6. Analizar tu mes
 
-1. Abrí **Atajos** → **+** → nombralo "Registro Gastos" (o el que ya tenías).
-2. **Elegir de menú** — pregunta: "¿Ingreso o Egreso?" — opciones: `Ingreso`, `Egreso`.
-3. **Solicitar entrada** (Texto) — pregunta: "¿Qué es?".
-4. **Solicitar entrada** (Número) — pregunta: "¿Cuánto?".
-5. **Elegir de menú** — pregunta: "¿Categoría?" — opciones: `Comida`,
-   `Transporte`, `Salidas`, `Hogar`, `Salud`, `Ropa`, `Ingreso`, `Otros`.
-6. **Elegir de menú** — pregunta: "¿Medio de pago?" — opciones: `Efectivo`,
-   `Dólares`, y una opción por cada tarjeta que hayas cargado en la
-   pestaña **Configuración** del dashboard (los nombres tienen que
-   coincidir exactamente, letra por letra).
-7. **Obtener contenido de URL**:
-   - URL: `https://finanzas.storecofusion.com/api/movimiento`
-   - Método: `POST`
-   - Encabezados: `x-api-key` → tu `API_KEY`, `Content-Type` → `application/json`
-   - Cuerpo JSON:
-     - `tipo` → variable del paso 2
-     - `descripcion` → variable del paso 3
-     - `monto` → variable del paso 4
-     - `categoria` → variable del paso 5
-     - `medio_pago` → variable del paso 6
-8. **Mostrar resultado** (contenido de la URL) — para confirmar que dice `ok`.
-9. Compartir → **Agregar a pantalla de inicio**, y en los detalles del
-   Atajo activá **Agregar a Siri** con una frase tipo "Registrar gasto".
-
-Con esto, decís "Oye Siri, registrar gasto", contestás las 5 preguntas
-(podés dictarlas por voz) y ya está — sin tocar la pantalla ni abrir nada.
-
-## 6. Gastos fijos y suscripciones (100% automático)
-
-En la pestaña **Gastos fijos** del dashboard cargás una vez: nombre,
-monto, medio de pago, categoría y día del mes en que se cobra. El
-servidor revisa todos los días y, cuando llega ese día, agrega el gasto
-solo — no hace falta volver a tocarlo salvo que cambie el monto o quieras
-darlo de baja.
-
-## 7. Qué mirás a fin de mes
-
-En **Resumen** vas a ver: balance en pesos y en dólares por separado,
-gasto por categoría, gasto por medio de pago (para ver cuánto usás cada
-tarjeta), tus últimos movimientos, y el botón **"Analizar mi mes"** que le
-pide a Claude un resumen de dónde se te va la plata y consejos concretos.
+Botón **"Generar texto"** en Resumen: arma un texto con ingresos,
+egresos, categorías, saldos y reservas. Tocás **"Copiar"** y lo pegás en
+Claude, ChatGPT o la IA que uses — te va a devolver el análisis sin que
+vos pagues ninguna API desde el servidor.

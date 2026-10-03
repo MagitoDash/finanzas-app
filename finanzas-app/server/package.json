@@ -1,7 +1,7 @@
 {
   "name": "finanzas-app-server",
-  "version": "2.0.0",
-  "description": "Gestor financiero automático con Atajo de iPhone, dashboard y asistente Claude",
+  "version": "3.0.0",
+  "description": "Gestor financiero automático con Atajo de iPhone, saldos por medio de pago, reservas y dashboard web",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
@@ -11,7 +11,6 @@
     "express": "^4.19.2",
     "better-sqlite3": "^11.3.0",
     "node-telegram-bot-api": "^0.66.0",
-    "node-fetch": "^2.7.0",
     "dotenv": "^16.4.5",
     "cors": "^2.8.5"
   }
