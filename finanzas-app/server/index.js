@@ -47,6 +47,7 @@ app.get('/api/categorias', (req, res) => res.json(LISTA_CATEGORIAS));
 // ---------- Movimientos (lo usa el Atajo de iPhone) ----------
 // POST { tipo: "Ingreso"|"Egreso", monto: 1500, medio_pago: "Efectivo", categoria: "Comida", descripcion: "asado" }
 app.post('/api/movimiento', chequearApiKey, (req, res) => {
+  console.log('BODY RECIBIDO:', JSON.stringify(req.body));
   let { tipo, monto, medio_pago, categoria, descripcion } = req.body;
   monto = parseFloat(monto);
   if (!tipo || !['Ingreso', 'Egreso'].includes(tipo)) return res.status(400).json({ error: 'tipo debe ser Ingreso o Egreso' });
