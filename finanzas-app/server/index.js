@@ -12,7 +12,18 @@ const { iniciarRevisionDiaria, revisarFijos } = require('./cron');
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'dashboard')));
+
+// Evita que el navegador o un proxy/CDN (Cloudflare) sirvan datos viejos del API.
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  next();
+});
+
+app.use(express.static(path.join(__dirname, '..', 'dashboard'), {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => res.set('Cache-Control', 'no-store'),
+}));
 
 const API_KEY = process.env.API_KEY;
 

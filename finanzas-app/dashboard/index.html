@@ -45,8 +45,13 @@
 </style>
 </head>
 <body>
-  <h1>💰 Mis Finanzas</h1>
-  <div class="sub">Gestor financiero automático</div>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+    <div>
+      <h1>💰 Mis Finanzas</h1>
+      <div class="sub">Gestor financiero automático</div>
+    </div>
+    <button class="secondary" onclick="actualizarTodo()" id="btn-actualizar">↻ Actualizar</button>
+  </div>
 
   <div class="tabs">
     <div class="tab active" data-view="resumen">Resumen</div>
@@ -169,8 +174,8 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
 });
 
 async function cargarBase() {
-  CATEGORIAS = await fetch('/api/categorias').then(r => r.json());
-  MEDIOS = await fetch('/api/medios').then(r => r.json());
+  CATEGORIAS = await fetch('/api/categorias', { cache: 'no-store' }).then(r => r.json());
+  MEDIOS = await fetch('/api/medios', { cache: 'no-store' }).then(r => r.json());
   const selMedio = document.getElementById('f-medio');
   selMedio.innerHTML = MEDIOS.map(m => `<option value="${m.nombre}">${m.nombre} (${m.moneda})</option>`).join('');
   const selCat = document.getElementById('f-categoria');
@@ -182,7 +187,7 @@ function colorPalette() {
 }
 
 async function cargarResumen() {
-  const r = await fetch('/api/resumen-mes').then(r => r.json());
+  const r = await fetch('/api/resumen-mes', { cache: 'no-store' }).then(r => r.json());
 
   const cardsHtml = Object.entries(r.porMoneda).map(([mon, v]) => `
     <div class="card">
@@ -227,7 +232,7 @@ async function cargarResumen() {
 }
 
 async function cargarHistorico() {
-  const rows = await fetch('/api/historico').then(r => r.json());
+  const rows = await fetch('/api/historico', { cache: 'no-store' }).then(r => r.json());
   const porPeriodo = {};
   for (const row of rows) {
     porPeriodo[row.periodo] = porPeriodo[row.periodo] || { egresos: 0, ingresos: 0 };
@@ -252,7 +257,7 @@ async function cargarHistorico() {
 async function generarPrompt() {
   const box = document.getElementById('ia-box');
   box.textContent = 'Generando...';
-  const r = await fetch('/api/prompt-analisis').then(r => r.json());
+  const r = await fetch('/api/prompt-analisis', { cache: 'no-store' }).then(r => r.json());
   ultimoPrompt = r.texto || '';
   box.textContent = ultimoPrompt || 'No hay datos suficientes.';
 }
@@ -270,7 +275,7 @@ async function borrarMovimiento(id) {
 
 // ---------- SALDOS ----------
 async function cargarSaldos() {
-  const saldos = await fetch('/api/saldos').then(r => r.json());
+  const saldos = await fetch('/api/saldos', { cache: 'no-store' }).then(r => r.json());
   document.getElementById('cards-saldos').innerHTML = saldos.map(s => `
     <div class="card">
       <div class="stat-label">${s.nombre}</div>
@@ -280,7 +285,7 @@ async function cargarSaldos() {
 
 // ---------- RESERVAS ----------
 async function cargarReservas() {
-  const reservas = await fetch('/api/reservas').then(r => r.json());
+  const reservas = await fetch('/api/reservas', { cache: 'no-store' }).then(r => r.json());
   document.getElementById('lista-reservas').innerHTML = reservas.map(r => {
     const pct = r.objetivo_monto ? Math.min(100, Math.round(r.saldo / r.objetivo_monto * 100)) : null;
     return `
@@ -369,6 +374,22 @@ async function borrarMedio(id) {
   await fetch('/api/medios/' + id, { method: 'DELETE' });
   await cargarBase(); renderMedios();
 }
+
+async function actualizarTodo() {
+  const btn = document.getElementById('btn-actualizar');
+  btn.disabled = true; btn.textContent = 'Actualizando...';
+  await cargarBase(); renderMedios(); await cargarResumen();
+  const activa = document.querySelector('.tab.active')?.dataset.view;
+  if (activa === 'saldos') await cargarSaldos();
+  if (activa === 'reservas') await cargarReservas();
+  btn.disabled = false; btn.textContent = '↻ Actualizar';
+}
+
+// Si la pestaña del navegador queda abierta y volvés a ella (por ej. después
+// de cargar un gasto desde el Atajo en el celular), refresca solo.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') actualizarTodo();
+});
 
 (async () => { await cargarBase(); renderMedios(); await cargarResumen(); })();
 </script>
