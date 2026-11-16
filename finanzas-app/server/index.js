@@ -195,12 +195,14 @@ app.get('/api/resumen-mes', (req, res) => {
 
   const porMoneda = {};
   const porCategoria = {};
+  const porCategoriaIngreso = {};
   const porMedio = {};
   for (const m of movs) {
     const mon = m.moneda || 'ARS';
     porMoneda[mon] = porMoneda[mon] || { ingresos: 0, egresos: 0 };
     if (m.tipo === 'Ingreso') {
       porMoneda[mon].ingresos += m.monto;
+      porCategoriaIngreso[m.categoria] = (porCategoriaIngreso[m.categoria] || 0) + m.monto;
     } else {
       porMoneda[mon].egresos += m.monto;
       porCategoria[m.categoria] = (porCategoria[m.categoria] || 0) + m.monto;
@@ -209,7 +211,7 @@ app.get('/api/resumen-mes', (req, res) => {
     }
   }
 
-  res.json({ movimientos: movs, fijos, porMoneda, porCategoria, porMedio });
+  res.json({ movimientos: movs, fijos, porMoneda, porCategoria, porCategoriaIngreso, porMedio });
 });
 
 app.get('/api/historico', (req, res) => {

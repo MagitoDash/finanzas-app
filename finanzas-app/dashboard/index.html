@@ -54,6 +54,17 @@
   .mov-actions button { padding: 4px 8px; font-size: 11px; }
   .progress-bar { background: #0f1115; border-radius: 999px; height: 8px; overflow: hidden; margin-top: 8px; }
   .progress-fill { background: var(--accent); height: 100%; }
+  .rank-row { display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0; }
+  .rank-dot { width:10px; height:10px; border-radius:50%; flex:none; }
+  .rank-name { flex:1; }
+  .rank-pct { color: var(--muted); width:42px; text-align:right; }
+  .rank-bar { height:5px; background:#0f1115; border-radius:99px; overflow:hidden; margin:0 0 4px 18px; }
+  .rank-bar > div { height:100%; }
+  .mov { padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; }
+  .mov:last-child { border-bottom:none; }
+  .mov-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .mov-sel { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .mov-sel select { padding:4px 8px; font-size:12px; }
 </style>
 </head>
 <body>
@@ -79,12 +90,19 @@
 
     <div class="grid">
       <div class="card">
-        <div class="stat-label" style="margin-bottom:12px;">Egresos por categoría (este mes)</div>
+        <div class="stat-label" style="margin-bottom:12px;">¿En qué gasto? · Egresos por categoría</div>
         <canvas id="chart-categorias"></canvas>
+        <div id="rank-egresos" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="stat-label" style="margin-bottom:12px;">¿De dónde entra? · Ingresos por categoría</div>
+        <canvas id="chart-ingresos"></canvas>
+        <div id="rank-ingresos" style="margin-top:12px;"></div>
       </div>
       <div class="card">
         <div class="stat-label" style="margin-bottom:12px;">Egresos por medio de pago</div>
         <canvas id="chart-medios"></canvas>
+        <div id="rank-medios" style="margin-top:12px;"></div>
       </div>
     </div>
 
@@ -94,7 +112,7 @@
     </div>
 
     <div class="card" style="margin-bottom:16px;">
-      <div class="stat-label" style="margin-bottom:8px;">Movimientos de este mes</div>
+      <div class="stat-label" style="margin-bottom:8px;">Movimientos de este mes <span class="cat" style="text-transform:none;">· cambiá la categoría o el medio tocando las listas</span></div>
       <div id="lista-movimientos"></div>
     </div>
 
@@ -173,7 +191,8 @@
 const fmt = (n, mon) => (mon === 'USD' ? 'U$D ' : '$') + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
 let CATEGORIAS = { egreso: [], ingreso: [] };
 let MEDIOS = [];
-let chartCat, chartMedios, chartHistorico;
+let chartCat, chartIng, chartMedios, chartHistorico;
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let ultimoPrompt = '';
 
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
@@ -220,6 +239,39 @@ function mostrarErrorEnCanvas(canvasId, mensaje) {
   canvas.replaceWith(div);
 }
 
+function dibujarDona(canvasId, rankId, datos, guardar, previo) {
+  try {
+    const entradas = Object.entries(datos).sort((x, y) => y[1] - x[1]);
+    const total = entradas.reduce((acc, [, v]) => acc + v, 0);
+    const pal = colorPalette();
+    const rank = document.getElementById(rankId);
+    if (rank) {
+      rank.innerHTML = entradas.map(([k, v], i) => {
+        const pct = total ? v / total * 100 : 0;
+        const col = pal[i % pal.length];
+        return `<div class="rank-row"><span class="rank-dot" style="background:${col}"></span><span class="rank-name">${esc(k)}</span><span>${fmt(v)}</span><span class="rank-pct">${Math.round(pct)}%</span></div>
+                <div class="rank-bar"><div style="width:${pct}%; background:${col}"></div></div>`;
+      }).join('') || '<div class="cat">Todavía no hay datos este mes</div>';
+    }
+    if (previo) previo.destroy();
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    guardar(new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels: entradas.map(([k]) => k), datasets: [{ data: entradas.map(([, v]) => v), backgroundColor: entradas.map((_, i) => pal[i % pal.length]), borderWidth: 0 }] },
+      options: { plugins: { legend: { display: false } } }
+    }));
+  } catch (e) { console.error('Error creando gráfico ' + canvasId + ':', e); }
+}
+
+async function editarMov(id, campo, valor) {
+  if (!valor) return;
+  try {
+    await fetch('/api/movimiento/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [campo]: valor }) });
+  } catch (e) { console.error('Error editando movimiento:', e); }
+  await cargarResumen();
+}
+
 async function cargarResumen() {
   let r;
   try {
@@ -241,14 +293,27 @@ async function cargarResumen() {
   } catch (e) { console.error('Error en cards de balance:', e); }
 
   try {
-    const movHtml = r.movimientos.map(m => `
-      <div class="list-item">
-        <span>${m.tipo === 'Ingreso' ? '🟢' : '🔴'} ${m.descripcion || '-'} <span class="cat">(${m.categoria}${m.medio_nombre ? ' · ' + m.medio_nombre : ''})</span></span>
-        <span style="display:flex; align-items:center; gap:8px;">
-          ${fmt(m.monto, m.moneda)}
-          <span class="mov-actions"><button class="danger-btn" onclick="borrarMovimiento(${m.id})">Borrar</button></span>
-        </span>
-      </div>`).join('') || '<div class="cat">Sin movimientos este mes</div>';
+    const movHtml = r.movimientos.map(m => {
+      const lista = (m.tipo === 'Ingreso' ? CATEGORIAS.ingreso : CATEGORIAS.egreso) || [];
+      const cats = lista.includes(m.categoria) ? lista : [m.categoria, ...lista];
+      const catSel = cats.map(c => `<option value="${esc(c)}" ${c === m.categoria ? 'selected' : ''}>${esc(c)}</option>`).join('');
+      const medioSel = (m.medio_nombre ? '' : '<option value="" selected disabled>Elegir medio…</option>') +
+        MEDIOS.map(x => `<option value="${esc(x.nombre)}" ${x.nombre === m.medio_nombre ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');
+      return `
+      <div class="mov">
+        <div class="mov-top">
+          <span>${m.tipo === 'Ingreso' ? '🟢' : '🔴'} ${esc(m.descripcion) || '-'}</span>
+          <span style="display:flex; align-items:center; gap:8px;">
+            ${fmt(m.monto, m.moneda)}
+            <span class="mov-actions"><button class="danger-btn" onclick="borrarMovimiento(${m.id})">Borrar</button></span>
+          </span>
+        </div>
+        <div class="mov-sel">
+          <select onchange="editarMov(${m.id}, 'categoria', this.value)">${catSel}</select>
+          <select onchange="editarMov(${m.id}, 'medio_pago', this.value)">${medioSel}</select>
+        </div>
+      </div>`;
+    }).join('') || '<div class="cat">Sin movimientos este mes</div>';
     document.getElementById('lista-movimientos').innerHTML = movHtml;
   } catch (e) { console.error('Error en lista de movimientos:', e); }
 
@@ -256,30 +321,13 @@ async function cargarResumen() {
   if (!chartsOk) {
     console.error('Chart.js no cargó (CDN bloqueado o sin conexión). Gráficos deshabilitados por esta vez.');
     mostrarErrorEnCanvas('chart-categorias', 'No se pudo cargar la librería de gráficos. Probá "↻ Actualizar".');
+    mostrarErrorEnCanvas('chart-ingresos', 'No se pudo cargar la librería de gráficos. Probá "↻ Actualizar".');
     mostrarErrorEnCanvas('chart-medios', 'No se pudo cargar la librería de gráficos. Probá "↻ Actualizar".');
     mostrarErrorEnCanvas('chart-historico', 'No se pudo cargar la librería de gráficos. Probá "↻ Actualizar".');
   } else {
-    try {
-      const totalCat = Object.values(r.porCategoria).reduce((a, b) => a + b, 0) || 1;
-      const labelsCat = Object.keys(r.porCategoria).map(k => `${k} (${Math.round(r.porCategoria[k] / totalCat * 100)}%)`);
-      if (chartCat) chartCat.destroy();
-      chartCat = new Chart(document.getElementById('chart-categorias'), {
-        type: 'doughnut',
-        data: { labels: labelsCat, datasets: [{ data: Object.values(r.porCategoria), backgroundColor: colorPalette() }] },
-        options: { plugins: { legend: { position: 'bottom', labels: { color: '#eef0f4', font: { size: 11 } } } } }
-      });
-    } catch (e) { console.error('Error creando gráfico de categorías:', e); }
-
-    try {
-      const totalMedio = Object.values(r.porMedio).reduce((a, b) => a + b, 0) || 1;
-      const labelsMedio = Object.keys(r.porMedio).map(k => `${k} (${Math.round(r.porMedio[k] / totalMedio * 100)}%)`);
-      if (chartMedios) chartMedios.destroy();
-      chartMedios = new Chart(document.getElementById('chart-medios'), {
-        type: 'doughnut',
-        data: { labels: labelsMedio, datasets: [{ data: Object.values(r.porMedio), backgroundColor: colorPalette() }] },
-        options: { plugins: { legend: { position: 'bottom', labels: { color: '#eef0f4', font: { size: 11 } } } } }
-      });
-    } catch (e) { console.error('Error creando gráfico de medios:', e); }
+    dibujarDona('chart-categorias', 'rank-egresos', r.porCategoria, c => { chartCat = c; }, chartCat);
+    dibujarDona('chart-ingresos', 'rank-ingresos', r.porCategoriaIngreso || {}, c => { chartIng = c; }, chartIng);
+    dibujarDona('chart-medios', 'rank-medios', r.porMedio, c => { chartMedios = c; }, chartMedios);
   }
 
   try {
