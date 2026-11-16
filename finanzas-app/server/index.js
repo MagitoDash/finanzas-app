@@ -96,7 +96,11 @@ app.post('/api/movimiento', chequearApiKey, (req, res) => {
     `INSERT INTO movimientos (tipo, monto, medio_pago_id, categoria, descripcion, origen) VALUES (?, ?, ?, ?, ?, 'shortcut')`
   ).run(tipo, monto, medioRow ? medioRow.id : null, cat, descripcion || '');
 
-  res.json({ ok: true, id: info.lastInsertRowid, categoria: cat, medio: medioRow ? medioRow.nombre : null });
+  res.json({
+    ok: true, id: info.lastInsertRowid, categoria: cat, medio: medioRow ? medioRow.nombre : null,
+    // Diagnóstico: lo que mandó realmente el Atajo
+    recibido: { tipo, categoria: categoria ?? null, medio_pago: medio_pago ?? null },
+  });
 });
 
 app.put('/api/movimiento/:id', (req, res) => {
