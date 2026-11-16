@@ -33,6 +33,28 @@ function chequearApiKey(req, res, next) {
   next();
 }
 
+// Tolera errores del Atajo: si "categoria" llega vacía o con el tipo ("Ingreso"/"Egreso")
+// en vez de una categoría real, se deduce de la descripción.
+function resolverCategoria(tipo, categoria, descripcion) {
+  const c = (categoria || '').toString().trim();
+  const invalida = !c || ['ingreso', 'egreso'].includes(c.toLowerCase());
+  if (!invalida) return c;
+  return tipo === 'Ingreso' ? 'Otros' : inferirCategoria(descripcion || '');
+}
+
+// Busca el medio de pago ignorando mayúsculas, espacios y tildes.
+const norm = (t) => (t || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+function buscarMedio(nombre) {
+  if (!nombre) return null;
+  const buscado = norm(nombre);
+  return db.prepare('SELECT * FROM medios_pago WHERE activo = 1').all().find((m) => norm(m.nombre) === buscado) || null;
+}
+
+// Arregla movimientos viejos que quedaron con "Ingreso"/"Egreso" como categoría.
+for (const m of db.prepare("SELECT id, tipo, descripcion FROM movimientos WHERE categoria IN ('Ingreso','Egreso')").all()) {
+  db.prepare('UPDATE movimientos SET categoria = ? WHERE id = ?').run(resolverCategoria(m.tipo, '', m.descripcion), m.id);
+}
+
 // ---------- Medios de pago ----------
 app.get('/api/medios', (req, res) => {
   res.json(db.prepare('SELECT * FROM medios_pago WHERE activo = 1 ORDER BY id').all());
@@ -67,10 +89,8 @@ app.post('/api/movimiento', chequearApiKey, (req, res) => {
   if (!tipo || !['Ingreso', 'Egreso'].includes(tipo)) return res.status(400).json({ error: 'tipo debe ser Ingreso o Egreso' });
   if (isNaN(monto)) return res.status(400).json({ error: 'monto inválido' });
 
-  let medioRow = null;
-  if (medio_pago) medioRow = db.prepare('SELECT * FROM medios_pago WHERE nombre = ? AND activo = 1').get(medio_pago);
-
-  const cat = categoria || (tipo === 'Ingreso' ? 'Otros' : inferirCategoria(descripcion || ''));
+  const medioRow = buscarMedio(medio_pago);
+  const cat = resolverCategoria(tipo, categoria, descripcion);
 
   const info = db.prepare(
     `INSERT INTO movimientos (tipo, monto, medio_pago_id, categoria, descripcion, origen) VALUES (?, ?, ?, ?, ?, 'shortcut')`
