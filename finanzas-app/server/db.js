@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS reservas (
   fecha_creacion TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS reglas_categoria ( clave TEXT NOT NULL, tipo TEXT NOT NULL, categoria TEXT NOT NULL, PRIMARY KEY (clave, tipo) );
 CREATE TABLE IF NOT EXISTS movimientos_reserva (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   reserva_id INTEGER NOT NULL,

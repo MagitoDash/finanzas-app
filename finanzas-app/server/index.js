@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
-const { inferirCategoria, LISTA_CATEGORIAS_EGRESO, LISTA_CATEGORIAS_INGRESO } = require('./categorias');
+const { inferirCategoria, claveDe, norm, tokens, LISTA_CATEGORIAS_EGRESO, LISTA_CATEGORIAS_INGRESO } = require('./categorias');
 const { iniciarBot } = require('./telegramBot');
 const { generarPromptAnalisis } = require('./promptAnalisis');
 const { calcularSaldos, calcularSaldoReservas } = require('./saldos');
@@ -33,26 +33,75 @@ function chequearApiKey(req, res, next) {
   next();
 }
 
-// Tolera errores del Atajo: si "categoria" llega vacía o con el tipo ("Ingreso"/"Egreso")
-// en vez de una categoría real, se deduce de la descripción.
+// ---- Clasificación automática ----
+// Categoría: 1) la que manda el Atajo (si es válida) -> 2) regla aprendida de tus correcciones
+//            -> 3) diccionario de palabras -> 4) "Otros".
+// Medio de pago: 1) el que manda el Atajo -> 2) el último que usaste con la misma descripción.
+function categoriaAprendida(tipo, descripcion) {
+  const clave = claveDe(descripcion);
+  if (!clave) return null;
+  const buscar = db.prepare('SELECT categoria FROM reglas_categoria WHERE clave = ? AND tipo = ?');
+  const exacta = buscar.get(clave, tipo);
+  if (exacta) return exacta.categoria;
+  for (const t of tokens(descripcion)) {
+    const r = buscar.get(t, tipo);
+    if (r) return r.categoria;
+  }
+  return null;
+}
+
 function resolverCategoria(tipo, categoria, descripcion) {
   const c = (categoria || '').toString().trim();
   const invalida = !c || ['ingreso', 'egreso'].includes(c.toLowerCase());
-  if (!invalida) return c;
-  return tipo === 'Ingreso' ? 'Otros' : inferirCategoria(descripcion || '');
+  if (!invalida) return { categoria: c, origen: 'atajo' };
+  const aprendida = categoriaAprendida(tipo, descripcion);
+  if (aprendida) return { categoria: aprendida, origen: 'aprendida' };
+  const deducida = inferirCategoria(descripcion || '', tipo);
+  return { categoria: deducida, origen: deducida === 'Otros' ? 'ninguna' : 'palabras' };
 }
 
 // Busca el medio de pago ignorando mayúsculas, espacios y tildes.
-const norm = (t) => (t || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 function buscarMedio(nombre) {
   if (!nombre) return null;
   const buscado = norm(nombre);
   return db.prepare('SELECT * FROM medios_pago WHERE activo = 1').all().find((m) => norm(m.nombre) === buscado) || null;
 }
 
-// Arregla movimientos viejos que quedaron con "Ingreso"/"Egreso" como categoría.
-for (const m of db.prepare("SELECT id, tipo, descripcion FROM movimientos WHERE categoria IN ('Ingreso','Egreso')").all()) {
-  db.prepare('UPDATE movimientos SET categoria = ? WHERE id = ?').run(resolverCategoria(m.tipo, '', m.descripcion), m.id);
+function resolverMedio(nombre, descripcion) {
+  const directo = buscarMedio(nombre);
+  if (directo) return { medio: directo, origen: 'atajo' };
+  const clave = claveDe(descripcion);
+  if (clave) {
+    const previos = db.prepare(
+      `SELECT m.descripcion, mp.* FROM movimientos m JOIN medios_pago mp ON mp.id = m.medio_pago_id
+       WHERE mp.activo = 1 ORDER BY m.id DESC LIMIT 500`
+    ).all();
+    const igual = previos.find((p) => claveDe(p.descripcion) === clave);
+    if (igual) return { medio: igual, origen: 'aprendido' };
+  }
+  return { medio: null, origen: 'ninguno' };
+}
+
+// Cuando corregís algo en la web, el sistema aprende y lo aplica a movimientos parecidos.
+function aprender(movId) {
+  const m = db.prepare('SELECT * FROM movimientos WHERE id = ?').get(movId);
+  if (!m) return;
+  const clave = claveDe(m.descripcion);
+  if (!clave) return;
+  if (m.categoria && m.categoria !== 'Otros') {
+    db.prepare('INSERT OR REPLACE INTO reglas_categoria (clave, tipo, categoria) VALUES (?, ?, ?)').run(clave, m.tipo, m.categoria);
+  }
+  for (const o of db.prepare('SELECT * FROM movimientos WHERE id != ? AND tipo = ?').all(movId, m.tipo)) {
+    if (claveDe(o.descripcion) !== clave) continue;
+    if (o.categoria === 'Otros' && m.categoria && m.categoria !== 'Otros') db.prepare('UPDATE movimientos SET categoria = ? WHERE id = ?').run(m.categoria, o.id);
+    if (!o.medio_pago_id && m.medio_pago_id) db.prepare('UPDATE movimientos SET medio_pago_id = ? WHERE id = ?').run(m.medio_pago_id, o.id);
+  }
+}
+
+// Al arrancar: reclasifica lo que quedó mal ("Ingreso"/"Egreso" o "Otros") con el diccionario y lo aprendido.
+for (const m of db.prepare("SELECT id, tipo, descripcion FROM movimientos WHERE categoria IN ('Ingreso','Egreso','Otros')").all()) {
+  const r = resolverCategoria(m.tipo, '', m.descripcion).categoria;
+  db.prepare('UPDATE movimientos SET categoria = ? WHERE id = ?').run(r, m.id);
 }
 
 // ---------- Medios de pago ----------
@@ -89,8 +138,10 @@ app.post('/api/movimiento', chequearApiKey, (req, res) => {
   if (!tipo || !['Ingreso', 'Egreso'].includes(tipo)) return res.status(400).json({ error: 'tipo debe ser Ingreso o Egreso' });
   if (isNaN(monto)) return res.status(400).json({ error: 'monto inválido' });
 
-  const medioRow = buscarMedio(medio_pago);
-  const cat = resolverCategoria(tipo, categoria, descripcion);
+  const rm = resolverMedio(medio_pago, descripcion);
+  const medioRow = rm.medio;
+  const rc = resolverCategoria(tipo, categoria, descripcion);
+  const cat = rc.categoria;
 
   const info = db.prepare(
     `INSERT INTO movimientos (tipo, monto, medio_pago_id, categoria, descripcion, origen) VALUES (?, ?, ?, ?, ?, 'shortcut')`
@@ -98,6 +149,7 @@ app.post('/api/movimiento', chequearApiKey, (req, res) => {
 
   res.json({
     ok: true, id: info.lastInsertRowid, categoria: cat, medio: medioRow ? medioRow.nombre : null,
+    categoria_origen: rc.origen, medio_origen: rm.origen,
     // Diagnóstico: lo que mandó realmente el Atajo
     recibido: { tipo, categoria: categoria ?? null, medio_pago: medio_pago ?? null },
   });
@@ -110,6 +162,7 @@ app.put('/api/movimiento/:id', (req, res) => {
     `UPDATE movimientos SET tipo = COALESCE(?, tipo), monto = COALESCE(?, monto), medio_pago_id = COALESCE(?, medio_pago_id),
      categoria = COALESCE(?, categoria), descripcion = COALESCE(?, descripcion) WHERE id = ?`
   ).run(tipo || null, monto != null ? parseFloat(monto) : null, medioRow ? medioRow.id : null, categoria || null, descripcion ?? null, req.params.id);
+  aprender(req.params.id);
   res.json({ ok: true });
 });
 
