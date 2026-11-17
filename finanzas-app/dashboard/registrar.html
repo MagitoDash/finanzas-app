@@ -12,11 +12,13 @@
 <title>Registrar</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:#0f1117;color:#e8e8ea;font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;padding:env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom))}
+body{margin:0;background:#0f1117;color:#e8e8ea;font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;padding:env(safe-area-inset-top) 16px calc(40px + env(safe-area-inset-bottom))}
 .top{display:flex;justify-content:space-between;align-items:center;padding:14px 0 8px}
 .top h1{font-size:20px;margin:0}.top a{color:#7ee8b8;text-decoration:none;font-size:14px}
+.cola{display:none;background:#3a2c0a;color:#fbbf24;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:8px}
+.cola.on{display:block}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:#1a1d27;border-radius:14px;padding:4px;margin:8px 0 14px}
-.seg button{border:0;background:none;color:#9aa0ae;font-size:17px;font-weight:600;padding:12px;border-radius:11px}
+.seg button{border:0;background:none;color:#9aa3b2;font-size:17px;font-weight:600;padding:12px;border-radius:11px}
 .seg button.on.eg{background:#f07373;color:#fff}.seg button.on.in{background:#4ed8a0;color:#06251a}
 label{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8b91a1;margin:16px 0 6px}
 .monto{display:flex;align-items:center;background:#1a1d27;border-radius:16px;padding:6px 16px}
@@ -27,9 +29,24 @@ input.txt{width:100%;background:#1a1d27;border:0;border-radius:14px;color:#fff;f
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{background:#1a1d27;border:2px solid transparent;color:#e8e8ea;border-radius:999px;padding:11px 16px;font-size:16px}
 .chip.on{border-color:#7ee8b8;background:#16312a;color:#b8f5da}
+.chip.x{border-color:#5a2a2d;color:#ffb4b4}
+.rap{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}.rap::-webkit-scrollbar{display:none}
+.rap .chip{flex:none;white-space:nowrap;background:#201c10;color:#fbd77a;border-color:#4a3d12}
+.rap .chip small{color:#c9a94c;margin-left:4px}
+.rhead{display:flex;justify-content:space-between;align-items:center;margin:10px 0 0}
+.rhead button{background:none;border:0;color:#8b91a1;font-size:14px;padding:4px 0}
+.cuotas{display:none;background:#171b26;border-radius:16px;padding:12px 14px;margin-top:14px}
+.cuotas.on{display:block}
+.cuotas label{margin:0 0 8px}.cuotas .info{margin-top:10px;font-size:15px;color:#b8f5da}
+.foto{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:2px dashed #3a4157;background:#151926;color:#cdd3e2;border-radius:16px;padding:16px;font-size:18px;font-weight:600;margin:6px 0 4px}
+.foto small{display:block;font-weight:400;color:#8b91a1;font-size:13px}
+.adj{display:none;align-items:center;gap:12px;background:#1a1d27;border-radius:14px;padding:10px;margin-top:10px}
+.adj img{width:64px;height:64px;object-fit:cover;border-radius:10px}.adj .t{flex:1;font-size:14px;color:#b8f5da}
+.adj button{border:1px solid #5a2a2d;background:none;color:#f07373;border-radius:8px;padding:6px 10px}
 .guardar{width:100%;margin-top:22px;border:0;border-radius:16px;padding:18px;font-size:20px;font-weight:700;background:#7ee8b8;color:#06251a}
 .guardar:disabled{opacity:.5}
-.toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));background:#16312a;color:#b8f5da;border-radius:14px;padding:14px 16px;font-size:16px;transform:translateY(140%);transition:.25s;z-index:9}
+.sec{width:100%;margin-top:10px;border:1px solid #3a4157;background:none;color:#cdd3e2;border-radius:14px;padding:12px;font-size:15px}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));background:#16312a;color:#b8f5da;border-radius:14px;padding:14px 16px;font-size:16px;transform:translateY(160%);transition:.25s;z-index:9}
 .toast.show{transform:none}.toast.err{background:#3a1b1d;color:#ffb4b4}
 .rec{margin-top:26px}.rec h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8b91a1;margin:0 0 8px}
 .mov{display:flex;align-items:center;gap:10px;background:#1a1d27;border-radius:12px;padding:11px 14px;margin-bottom:8px}
@@ -37,16 +54,9 @@ input.txt{width:100%;background:#1a1d27;border:0;border-radius:14px;color:#fff;f
 .mov .d{flex:1;min-width:0}.mov .d div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mov small{color:#8b91a1}.mov .m{font-weight:700}
 .mov button{border:1px solid #5a2a2d;background:none;color:#f07373;border-radius:8px;padding:6px 9px;font-size:13px}
-
-.foto{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:2px dashed #3a4157;background:#151926;color:#cdd3e2;border-radius:16px;padding:16px;font-size:18px;font-weight:600;margin:6px 0 4px}
-.foto small{display:block;font-weight:400;color:#8b91a1;font-size:13px}
-.adj{display:none;align-items:center;gap:12px;background:#1a1d27;border-radius:14px;padding:10px;margin-top:10px}
-.adj img{width:64px;height:64px;object-fit:cover;border-radius:10px}.adj .t{flex:1;font-size:14px;color:#b8f5da}
-.adj button{border:1px solid #5a2a2d;background:none;color:#f07373;border-radius:8px;padding:6px 10px}
 .pend{display:flex;align-items:center;gap:12px;background:#1a1d27;border-radius:14px;padding:10px;margin-bottom:8px}
 .pend img{width:56px;height:56px;object-fit:cover;border-radius:10px;flex:none}
-.pend .d{flex:1;min-width:0;font-size:15px}.pend small{color:#8b91a1;display:block}
-.pend .ia{color:#7ee8b8}
+.pend .d{flex:1;min-width:0;font-size:15px}.pend small{color:#8b91a1;display:block}.pend .ia{color:#7ee8b8}
 .pend button{border:0;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:700;background:#7ee8b8;color:#06251a}
 .pend button.x{background:none;border:1px solid #5a2a2d;color:#f07373;font-weight:400;margin-left:4px}
 .badge{background:#f5a524;color:#201400;border-radius:999px;font-size:12px;padding:2px 8px;margin-left:6px;font-weight:700}
@@ -58,6 +68,10 @@ input.txt{width:100%;background:#1a1d27;border:0;border-radius:14px;color:#fff;f
 </head>
 <body>
 <div class="top"><h1>Registrar</h1><a href="/">Ver panel →</a></div>
+<div class="cola" id="cola"></div>
+
+<div class="rhead"><label style="margin:0">⚡ Rápidos</label><button id="bEditRap" type="button">Editar</button></div>
+<div class="rap" id="rap"></div>
 
 <input type="file" id="file" accept="image/*" capture="environment" hidden>
 <button class="foto" id="bFoto" type="button">📷 Foto del ticket<small>Sacala ahora, completás los datos después</small></button>
@@ -79,187 +93,249 @@ input.txt{width:100%;background:#1a1d27;border:0;border-radius:14px;color:#fff;f
 <label>Medio de pago</label>
 <div class="chips" id="medios"></div>
 
+<div class="cuotas" id="cuotasBox">
+  <label>Cuotas</label>
+  <div class="chips" id="cuotasChips"></div>
+  <div class="chips" style="margin-top:8px"><button type="button" class="chip" id="bProx">Empieza el mes que viene</button></div>
+  <div class="info" id="cuotasInfo"></div>
+</div>
+
 <label>Categoría <span style="text-transform:none;letter-spacing:0">(Auto la deduce sola)</span></label>
 <div class="chips" id="cats"></div>
 
 <button class="guardar" id="guardar" type="button">Guardar</button>
+<button class="sec" id="bRapido" type="button">⚡ Guardar esto como acceso rápido</button>
 
 <div class="rec" id="pendBox" style="display:none"><h2>Fotos para completar <span class="badge" id="pendN">0</span></h2><div id="pend"></div></div>
 <div class="visor" id="visor"><img id="visorImg" alt=""></div>
 <div class="rec"><h2>Últimos movimientos</h2><div id="rec"></div></div>
 <div class="toast" id="toast"></div>
 
+<script src="/pin.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-AR');
-let tipo = 'Egreso', medio = '', cat = '', cats = { egreso: [], ingreso: [] }, medios = [], tSug;
+let tipo = 'Egreso', medio = '', cat = '', cats = { egreso: [], ingreso: [] }, medios = [], frec = [], tSug;
+let nCuotas = 1, proxMes = false, editRap = false, foto = null, ticketId = null;
 
+// ---------- Datos con copia local (para cuando no hay señal) ----------
+async function getJSON(url, clave, def) {
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (r.status === 401) { await Auth.mostrar(); return getJSON(url, clave, def); }
+    if (!r.ok) throw new Error('http');
+    const j = await r.json(); try { localStorage.setItem('c_' + clave, JSON.stringify(j)); } catch (e) {} return j;
+  } catch (e) {
+    try { const c = localStorage.getItem('c_' + clave); if (c) return JSON.parse(c); } catch (x) {}
+    return def;
+  }
+}
+
+// ---------- Cola sin señal (IndexedDB) ----------
+const idb = new Promise((ok, mal) => {
+  const q = indexedDB.open('finanzas', 1);
+  q.onupgradeneeded = () => q.result.createObjectStore('cola', { autoIncrement: true });
+  q.onsuccess = () => ok(q.result); q.onerror = () => mal(q.error);
+});
+const tx = async (modo, fn) => { const d = await idb; return new Promise((ok, mal) => { const t = d.transaction('cola', modo), s = t.objectStore('cola'), r = fn(s); t.oncomplete = () => ok(r && r.result); t.onerror = () => mal(t.error); }); };
+const colaAdd = (it) => tx('readwrite', (s) => s.add(it));
+const colaDel = (k) => tx('readwrite', (s) => s.delete(k));
+const colaPut = (k, it) => tx('readwrite', (s) => s.put(it, k));
+async function colaTodo() { const d = await idb; return new Promise((ok) => { const out = [], c = d.transaction('cola').objectStore('cola').openCursor(); c.onsuccess = () => { const x = c.result; if (x) { out.push({ k: x.key, it: x.value }); x.continue(); } else ok(out); }; c.onerror = () => ok(out); }); }
+async function pintarCola() {
+  try { const n = (await colaTodo()).length; $('cola').className = 'cola' + (n ? ' on' : ''); $('cola').textContent = n ? `⏳ ${n} sin subir. Se suben solos cuando vuelva la señal.` : ''; } catch (e) {}
+}
+
+class ErrRed extends Error {}
+class ErrPin extends Error {}
+async function postJSON(url, body) {
+  let r; try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } catch (e) { throw new ErrRed('red'); }
+  if (r.status === 401) throw new ErrPin('pin');
+  if (r.status >= 500) throw new ErrRed('server');
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Error'); return j;
+}
+// Sube una foto y/o un movimiento. Si algo falla por red, queda en la cola con lo que ya se subió.
+async function enviar(it) {
+  if (it.imagen) { const t = await postJSON('/api/tickets', { imagen: it.imagen, nota: it.nota || '' }); it.tid = t.id; it.imagen = null; it.lectura = t.lectura_automatica; }
+  if (it.body) { if (it.tid) it.body.ticket_id = it.tid; return postJSON('/api/registrar', it.body); }
+  return { ok: true, solo_foto: true, lectura: it.lectura };
+}
+let vaciando = false;
+async function vaciarCola() {
+  if (vaciando || !navigator.onLine) return; vaciando = true;
+  try {
+    for (const { k, it } of await colaTodo()) {
+      try { await enviar(it); await colaDel(k); }
+      catch (e) {
+        if (e instanceof ErrRed) { await colaPut(k, it); break; }
+        if (e instanceof ErrPin) { await colaPut(k, it); await Auth.mostrar(); continue; }
+        await colaDel(k); toast('Un movimiento guardado sin señal no se pudo subir: ' + e.message, true);
+      }
+    }
+  } finally { vaciando = false; await pintarCola(); cargarRecientes(); cargarPendientes(); }
+}
+window.addEventListener('online', vaciarCola);
+setInterval(vaciarCola, 30000);
+
+// ---------- Formulario ----------
+function tipoMedio() { const m = medios.find((x) => x.nombre === medio); return m ? m.tipo_medio : ''; }
 function setTipo(t) {
   tipo = t; cat = '';
-  $('bEg').className = t === 'Egreso' ? 'on eg' : '';
-  $('bIn').className = t === 'Ingreso' ? 'on in' : '';
-  dibujarCats(); sugerir();
+  $('bEg').className = t === 'Egreso' ? 'on eg' : ''; $('bIn').className = t === 'Ingreso' ? 'on in' : '';
+  dibujarCats(); dibujarCuotas(); sugerir();
 }
-$('bEg').onclick = () => setTipo('Egreso');
-$('bIn').onclick = () => setTipo('Ingreso');
+$('bEg').onclick = () => setTipo('Egreso'); $('bIn').onclick = () => setTipo('Ingreso');
 
 function dibujarMedios() {
   $('medios').innerHTML = ['', ...medios.map((m) => m.nombre)].map((n) =>
     `<button type="button" class="chip ${medio === n ? 'on' : ''}" data-v="${esc(n)}">${n ? esc(n) : 'Auto'}</button>`).join('');
-  $('medios').querySelectorAll('button').forEach((b) => b.onclick = () => { medio = b.dataset.v; dibujarMedios(); });
+  $('medios').querySelectorAll('button').forEach((b) => b.onclick = () => { medio = b.dataset.v; if (tipoMedio() !== 'credito') nCuotas = 1; dibujarMedios(); dibujarCuotas(); });
 }
 function dibujarCats() {
   const lista = tipo === 'Ingreso' ? cats.ingreso : cats.egreso;
-  $('cats').innerHTML = ['', ...lista].map((n) =>
-    `<button type="button" class="chip ${cat === n ? 'on' : ''}" data-v="${esc(n)}">${n ? esc(n) : 'Auto'}</button>`).join('');
+  $('cats').innerHTML = ['', ...lista].map((n) => `<button type="button" class="chip ${cat === n ? 'on' : ''}" data-v="${esc(n)}">${n ? esc(n) : 'Auto'}</button>`).join('');
   $('cats').querySelectorAll('button').forEach((b) => b.onclick = () => { cat = b.dataset.v; dibujarCats(); });
 }
+function montoNum() { return parseFloat($('monto').value.replace(/\./g, '').replace(',', '.')) || 0; }
+function dibujarCuotas() {
+  const ver = tipo === 'Egreso' && tipoMedio() === 'credito';
+  $('cuotasBox').className = 'cuotas' + (ver ? ' on' : '');
+  if (!ver) { nCuotas = 1; return; }
+  $('cuotasChips').innerHTML = [1, 3, 6, 9, 12, 18, 24].map((n) => `<button type="button" class="chip ${nCuotas === n ? 'on' : ''}" data-n="${n}">${n === 1 ? '1 pago' : n}</button>`).join('');
+  $('cuotasChips').querySelectorAll('button').forEach((b) => b.onclick = () => { nCuotas = +b.dataset.n; dibujarCuotas(); });
+  $('bProx').className = 'chip' + (proxMes ? ' on' : ''); $('bProx').style.display = nCuotas > 1 ? '' : 'none';
+  const m = montoNum();
+  $('cuotasInfo').textContent = nCuotas > 1 ? (m ? `${nCuotas} cuotas de ${fmt(m / nCuotas)} (total ${fmt(m)})` : 'Poné el monto TOTAL de la compra') : '';
+}
+$('bProx').onclick = () => { proxMes = !proxMes; dibujarCuotas(); };
+$('monto').addEventListener('input', dibujarCuotas);
 
 function sugerir() {
-  clearTimeout(tSug);
-  const d = $('desc').value.trim();
+  clearTimeout(tSug); const d = $('desc').value.trim();
   if (!d) { $('sug').textContent = ''; return; }
   tSug = setTimeout(async () => {
-    try {
-      const r = await (await fetch('/api/sugerir?tipo=' + tipo + '&descripcion=' + encodeURIComponent(d))).json();
-      $('sug').innerHTML = 'Se guarda como <b>' + esc(r.categoria) + '</b>' + (r.medio ? ' · con <b>' + esc(r.medio) + '</b>' : '');
-    } catch (e) {}
+    try { const r = await (await fetch('/api/sugerir?tipo=' + tipo + '&descripcion=' + encodeURIComponent(d))).json();
+      $('sug').innerHTML = 'Se guarda como <b>' + esc(r.categoria) + '</b>' + (r.medio ? ' · con <b>' + esc(r.medio) + '</b>' : ''); } catch (e) {}
   }, 250);
 }
 $('desc').addEventListener('input', sugerir);
 
 function toast(msg, err) {
   const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 3200);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 3600);
 }
 
-async function guardar() {
-  const monto = parseFloat($('monto').value.replace(/\./g, '').replace(',', '.'));
-  // Con foto nueva y sin monto: se guarda solo la foto para completar después.
-  if (foto && !(monto > 0)) {
-    $('guardar').disabled = true;
-    try {
-      const j = await subirFoto(foto, $('desc').value.trim());
-      foto = null; mostrarAdj(); $('desc').value = ''; $('sug').textContent = '';
-      toast('📷 Foto guardada para completar después' + (j.lectura_automatica ? ' (leyendo el ticket…)' : ''));
-      cargarPendientes(); setTimeout(cargarPendientes, 6000);
-    } catch (e) { toast('No se guardó: ' + e.message, true); }
-    $('guardar').disabled = false; return;
-  }
-  if (!monto || monto <= 0) { toast('Poné un monto o sacá una foto', true); $('monto').focus(); return; }
-  $('guardar').disabled = true;
+// ---------- Accesos rápidos ----------
+function dibujarRapidos() {
+  $('rap').innerHTML = frec.map((f) => `<button type="button" class="chip ${editRap ? 'x' : ''}" data-id="${f.id}">${editRap ? '✕ ' : '⚡ '}${esc(f.nombre)}${f.monto ? `<small>${fmt(f.monto)}</small>` : ''}</button>`).join('')
+    || '<span style="color:#8b91a1;font-size:14px">Cargá algo y tocá “Guardar esto como acceso rápido”.</span>';
+  $('bEditRap').textContent = editRap ? 'Listo' : 'Editar'; $('bEditRap').style.display = frec.length ? '' : 'none';
+  $('rap').querySelectorAll('[data-id]').forEach((b) => b.onclick = async () => {
+    const f = frec.find((x) => x.id == b.dataset.id); if (!f) return;
+    if (editRap) { if (!confirm('¿Borrar “' + f.nombre + '”?')) return; await fetch('/api/frecuentes/' + f.id, { method: 'DELETE' }); await cargarRapidos(); return; }
+    setTipo(f.tipo); $('desc').value = f.descripcion || f.nombre; medio = f.medio || ''; cat = f.categoria || '';
+    if (f.monto) $('monto').value = String(f.monto).replace('.', ','); else $('monto').value = '';
+    dibujarMedios(); dibujarCats(); dibujarCuotas(); sugerir(); window.scrollTo({ top: 0, behavior: 'smooth' }); $(f.monto ? 'guardar' : 'monto').focus();
+  });
+}
+$('bEditRap').onclick = () => { editRap = !editRap; dibujarRapidos(); };
+async function cargarRapidos() { frec = await getJSON('/api/frecuentes', 'frec', []); dibujarRapidos(); }
+$('bRapido').onclick = async () => {
+  const d = $('desc').value.trim(); if (!d) { toast('Escribí qué es (por ej. “café”) para guardarlo', true); $('desc').focus(); return; }
   try {
-    let tid = ticketId;
-    if (foto) { const t = await subirFoto(foto, ''); tid = t.id; }
-    const r = await fetch('/api/registrar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo, monto, descripcion: $('desc').value.trim(), medio_pago: medio, categoria: cat, ticket_id: tid }),
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || 'Error');
-    toast('✓ ' + fmt(monto) + ' · ' + j.categoria + (j.medio ? ' · ' + j.medio : ''));
-    $('monto').value = ''; $('desc').value = ''; $('sug').textContent = ''; cat = ''; dibujarCats();
-    foto = null; mostrarAdj(); salirDeEdicion();
-    cargarRecientes(); cargarPendientes();
-  } catch (e) { toast('No se guardó: ' + e.message, true); }
-  $('guardar').disabled = false;
-}
-$('guardar').onclick = guardar;
+    await postJSON('/api/frecuentes', { nombre: d.slice(0, 30), tipo, descripcion: d, medio_pago: medio, categoria: cat, monto: montoNum() || null });
+    toast('⚡ Guardado en Rápidos'); cargarRapidos();
+  } catch (e) { toast(e instanceof ErrRed ? 'Necesitás señal para guardar un acceso rápido' : e.message, true); }
+};
 
-async function cargarRecientes() {
-  try {
-    const l = await (await fetch('/api/movimientos-recientes')).json();
-    $('rec').innerHTML = l.map((m) => `
-      <div class="mov"><span class="dot" style="background:${m.tipo === 'Ingreso' ? '#4ed8a0' : '#f07373'}"></span>
-      <div class="d"><div>${esc(m.descripcion || m.categoria)}</div><small>${esc(m.categoria)} · ${esc(m.medio || 'sin medio')}</small></div>
-      <div class="m">${m.tipo === 'Ingreso' ? '+' : '−'}${fmt(m.monto)}</div>
-      <button data-id="${m.id}">Borrar</button></div>`).join('') || '<small>Todavía no hay movimientos.</small>';
-    $('rec').querySelectorAll('button').forEach((b) => b.onclick = async () => {
-      if (!confirm('¿Borrar este movimiento?')) return;
-      await fetch('/api/movimiento/' + b.dataset.id, { method: 'DELETE' }); cargarRecientes();
-    });
-  } catch (e) {}
-}
-
-
-// ---------- Fotos de tickets ----------
-let foto = null;          // dataURL de la foto nueva (todavía sin subir)
-let ticketId = null;      // ticket pendiente que se está completando
-
+// ---------- Fotos ----------
 function comprimir(file) {
   return new Promise((ok, mal) => {
     const img = new Image(), url = URL.createObjectURL(file);
-    img.onload = () => {
-      const M = 1600, k = Math.min(1, M / Math.max(img.width, img.height));
-      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.75));
-    };
-    img.onerror = () => mal(new Error('No se pudo leer la foto'));
-    img.src = url;
+    img.onload = () => { const M = 1600, k = Math.min(1, M / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.75)); };
+    img.onerror = () => mal(new Error('No se pudo leer la foto')); img.src = url;
   });
 }
-async function subirFoto(dataUrl, nota) {
-  const r = await fetch('/api/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imagen: dataUrl, nota }) });
-  const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Error al subir la foto'); return j;
-}
-function mostrarAdj() {
-  $('adj').style.display = foto ? 'flex' : 'none';
-  if (foto) { $('adjImg').src = foto; $('adjT').textContent = 'Foto lista. Si dejás el monto vacío, se guarda para completar después.'; }
-}
+function mostrarAdj() { $('adj').style.display = foto ? 'flex' : 'none'; if (foto) { $('adjImg').src = foto; $('adjT').textContent = 'Foto lista. Si dejás el monto vacío, se guarda para completar después.'; } }
 $('bFoto').onclick = () => $('file').click();
 $('file').onchange = async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try { foto = await comprimir(f); ticketId = null; $('editando').style.display = 'none'; mostrarAdj(); toast('📷 Foto lista'); }
-  catch (er) { toast(er.message, true); }
+  try { foto = await comprimir(f); ticketId = null; $('editando').style.display = 'none'; mostrarAdj(); toast('📷 Foto lista'); } catch (er) { toast(er.message, true); }
 };
 $('adjX').onclick = () => { foto = null; mostrarAdj(); };
-
 function salirDeEdicion() { ticketId = null; $('editando').style.display = 'none'; }
 
 async function cargarPendientes() {
-  try {
-    const l = await (await fetch('/api/tickets?estado=pendiente')).json();
-    $('pendBox').style.display = l.length ? 'block' : 'none'; $('pendN').textContent = l.length;
-    $('pend').innerHTML = l.map((t) => {
-      const ia = t.datos_ia && (t.datos_ia.monto || t.datos_ia.descripcion)
-        ? `<span class="ia">${t.datos_ia.monto ? fmt(t.datos_ia.monto) : ''} ${esc(t.datos_ia.descripcion || '')}</span>` : '';
-      return `<div class="pend"><img src="/api/tickets/${t.id}/foto" data-z="${t.id}" alt="">
-        <div class="d">${ia || 'Sin completar'}<small>${esc(t.fecha.slice(5, 16))}${t.nota ? ' · ' + esc(t.nota) : ''}</small></div>
-        <button data-c="${t.id}">Completar</button><button class="x" data-d="${t.id}">✕</button></div>`;
-    }).join('');
-    const porId = Object.fromEntries(l.map((t) => [t.id, t]));
-    $('pend').querySelectorAll('[data-z]').forEach((i) => i.onclick = () => { $('visorImg').src = i.src; $('visor').style.display = 'flex'; });
-    $('pend').querySelectorAll('[data-c]').forEach((b) => b.onclick = () => completar(porId[b.dataset.c]));
-    $('pend').querySelectorAll('[data-d]').forEach((b) => b.onclick = async () => {
-      if (!confirm('¿Descartar esta foto?')) return;
-      await fetch('/api/tickets/' + b.dataset.d, { method: 'DELETE' }); cargarPendientes();
-    });
-  } catch (e) {}
+  const l = await getJSON('/api/tickets?estado=pendiente', 'pend', []);
+  $('pendBox').style.display = l.length ? 'block' : 'none'; $('pendN').textContent = l.length;
+  $('pend').innerHTML = l.map((t) => {
+    const ia = t.datos_ia && (t.datos_ia.monto || t.datos_ia.descripcion) ? `<span class="ia">${t.datos_ia.monto ? fmt(t.datos_ia.monto) : ''} ${esc(t.datos_ia.descripcion || '')}</span>` : '';
+    return `<div class="pend"><img src="/api/tickets/${t.id}/foto" data-z="${t.id}" alt=""><div class="d">${ia || 'Sin completar'}<small>${esc(t.fecha.slice(5, 16))}${t.nota ? ' · ' + esc(t.nota) : ''}</small></div>
+      <button data-c="${t.id}">Completar</button><button class="x" data-d="${t.id}">✕</button></div>`;
+  }).join('');
+  const porId = Object.fromEntries(l.map((t) => [t.id, t]));
+  $('pend').querySelectorAll('[data-z]').forEach((i) => i.onclick = () => { $('visorImg').src = i.src; $('visor').style.display = 'flex'; });
+  $('pend').querySelectorAll('[data-c]').forEach((b) => b.onclick = () => completar(porId[b.dataset.c]));
+  $('pend').querySelectorAll('[data-d]').forEach((b) => b.onclick = async () => { if (!confirm('¿Descartar esta foto?')) return; await fetch('/api/tickets/' + b.dataset.d, { method: 'DELETE' }); cargarPendientes(); });
 }
 $('visor').onclick = () => $('visor').style.display = 'none';
-
 function completar(t) {
   ticketId = t.id; foto = null; mostrarAdj();
-  if (t.datos_ia) {
-    if (t.datos_ia.monto) $('monto').value = String(t.datos_ia.monto).replace('.', ',');
-    if (t.datos_ia.descripcion) $('desc').value = t.datos_ia.descripcion;
-    sugerir();
-  }
-  $('editando').innerHTML = `Completando la foto #${t.id} <a href="#" id="verFoto">ver foto</a> <a href="#" id="cancelEd">cancelar</a>`;
-  $('editando').style.display = 'block';
+  if (t.datos_ia) { if (t.datos_ia.monto) $('monto').value = String(t.datos_ia.monto).replace('.', ','); if (t.datos_ia.descripcion) $('desc').value = t.datos_ia.descripcion; sugerir(); dibujarCuotas(); }
+  $('editando').innerHTML = `Completando la foto #${t.id} <a href="#" id="verFoto">ver foto</a> <a href="#" id="cancelEd">cancelar</a>`; $('editando').style.display = 'block';
   $('verFoto').onclick = (e) => { e.preventDefault(); $('visorImg').src = '/api/tickets/' + t.id + '/foto'; $('visor').style.display = 'flex'; };
   $('cancelEd').onclick = (e) => { e.preventDefault(); salirDeEdicion(); };
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-(async () => {
-  cargarPendientes();
-  try { medios = await (await fetch('/api/medios')).json(); } catch (e) {}
-  try { cats = await (await fetch('/api/categorias')).json(); } catch (e) {}
-  dibujarMedios(); dibujarCats(); cargarRecientes();
-})();
+// ---------- Guardar ----------
+function limpiar() {
+  $('monto').value = ''; $('desc').value = ''; $('sug').textContent = ''; cat = ''; nCuotas = 1; proxMes = false;
+  foto = null; mostrarAdj(); salirDeEdicion(); dibujarCats(); dibujarCuotas();
+}
+async function guardar() {
+  const monto = montoNum(), soloFoto = foto && !(monto > 0);
+  if (!soloFoto && !(monto > 0)) { toast('Poné un monto o sacá una foto', true); $('monto').focus(); return; }
+  if (!soloFoto && nCuotas > 1 && !medio) { toast('Elegí la tarjeta para cargar cuotas', true); return; }
+  const it = soloFoto ? { imagen: foto, nota: $('desc').value.trim(), body: null }
+    : { imagen: foto, nota: '', body: { tipo, monto, descripcion: $('desc').value.trim(), medio_pago: medio, categoria: cat, ticket_id: ticketId,
+        cuotas: nCuotas > 1 ? nCuotas : undefined, empieza_proximo: nCuotas > 1 ? proxMes : undefined } };
+  $('guardar').disabled = true;
+  try {
+    const j = await enviar(it);
+    if (soloFoto) { toast('📷 Foto guardada para completar después' + (j.lectura ? ' (leyendo el ticket…)' : '')); setTimeout(cargarPendientes, 6000); }
+    else if (j.plan_id) toast(`✓ ${j.cuotas} cuotas de ${fmt(j.monto_cuota)} · ${j.medio}`);
+    else toast('✓ ' + fmt(monto) + ' · ' + j.categoria + (j.medio ? ' · ' + j.medio : ''));
+    limpiar(); cargarRecientes(); cargarPendientes();
+  } catch (e) {
+    if (e instanceof ErrRed || e instanceof ErrPin) {
+      await colaAdd(it); limpiar(); await pintarCola();
+      if (e instanceof ErrPin) { toast('Ingresá el PIN: tu movimiento quedó guardado', true); Auth.mostrar().then(vaciarCola); }
+      else toast('📴 Sin señal: guardado en el celular, se sube solo');
+    } else toast('No se guardó: ' + e.message, true);
+  }
+  $('guardar').disabled = false;
+}
+$('guardar').onclick = guardar;
+
+async function cargarRecientes() {
+  const l = await getJSON('/api/movimientos-recientes', 'rec', []);
+  $('rec').innerHTML = l.map((m) => `<div class="mov"><span class="dot" style="background:${m.tipo === 'Ingreso' ? '#4ed8a0' : '#f07373'}"></span>
+    <div class="d"><div>${esc(m.descripcion || m.categoria)}</div><small>${esc(m.categoria)} · ${esc(m.medio || 'sin medio')}</small></div>
+    <div class="m">${m.tipo === 'Ingreso' ? '+' : '−'}${fmt(m.monto)}</div><button data-id="${m.id}">Borrar</button></div>`).join('') || '<small>Todavía no hay movimientos.</small>';
+  $('rec').querySelectorAll('button').forEach((b) => b.onclick = async () => { if (!confirm('¿Borrar este movimiento?')) return; await fetch('/api/movimiento/' + b.dataset.id, { method: 'DELETE' }); cargarRecientes(); });
+}
+
+async function iniciar() {
+  await Auth.check();
+  medios = await getJSON('/api/medios', 'medios', []); cats = await getJSON('/api/categorias', 'cats', { egreso: [], ingreso: [] });
+  dibujarMedios(); dibujarCats(); dibujarCuotas();
+  cargarRapidos(); cargarRecientes(); cargarPendientes(); pintarCola(); vaciarCola();
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+iniciar();
 </script>
 </body>
 </html>

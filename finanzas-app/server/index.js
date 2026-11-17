@@ -9,6 +9,10 @@ const { generarPromptAnalisis } = require('./promptAnalisis');
 const { calcularSaldos, calcularSaldoReservas } = require('./saldos');
 const { iniciarRevisionDiaria, revisarFijos } = require('./cron');
 
+const auth = require('./auth');
+const extras = require('./extras');
+const cuotas = require('./cuotas');
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
@@ -18,6 +22,9 @@ app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   next();
 });
+
+app.use('/api', auth.middleware);
+auth.montar(app);
 
 app.use(express.static(path.join(__dirname, '..', 'dashboard'), {
   etag: false,
@@ -110,10 +117,12 @@ app.get('/api/medios', (req, res) => {
 });
 
 app.post('/api/medios', (req, res) => {
-  const { nombre, moneda } = req.body;
+  const { nombre, moneda, tipo_medio, dia_cierre, dia_venc } = req.body;
   if (!nombre) return res.status(400).json({ error: 'nombre es requerido' });
+  const tipo = ['efectivo', 'debito', 'credito', 'billetera', 'otro'].includes(tipo_medio) ? tipo_medio : db.inferirTipoMedio(nombre);
   try {
-    const info = db.prepare('INSERT INTO medios_pago (nombre, moneda) VALUES (?, ?)').run(nombre, moneda || 'ARS');
+    const info = db.prepare('INSERT INTO medios_pago (nombre, moneda, tipo_medio, dia_cierre, dia_venc) VALUES (?, ?, ?, ?, ?)')
+      .run(nombre, moneda || 'ARS', tipo, parseInt(dia_cierre, 10) || null, parseInt(dia_venc, 10) || null);
     res.json({ id: info.lastInsertRowid, nombre, moneda: moneda || 'ARS' });
   } catch (e) {
     res.status(400).json({ error: 'Ya existe un medio de pago con ese nombre' });
@@ -125,7 +134,7 @@ app.delete('/api/medios/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/saldos', (req, res) => res.json(calcularSaldos()));
+app.get('/api/saldos', (req, res) => { cuotas.generarPendientes(); res.json(calcularSaldos()); });
 
 app.get('/api/categorias', (req, res) => {
   res.json({ egreso: LISTA_CATEGORIAS_EGRESO, ingreso: LISTA_CATEGORIAS_INGRESO });
@@ -142,6 +151,19 @@ const registrarMovimiento = (req, res) => {
   const medioRow = rm.medio;
   const rc = resolverCategoria(tipo, categoria, descripcion);
   const cat = rc.categoria;
+
+  // Compra en cuotas (tarjeta de crédito): se crea un plan y cada cuota se carga sola en su mes.
+  const nCuotas = parseInt(req.body.cuotas, 10);
+  if (tipo === 'Egreso' && nCuotas > 1) {
+    if (!medioRow) return res.status(400).json({ error: 'Elegí la tarjeta para cargar cuotas' });
+    try {
+      const p = cuotas.crearPlan({ descripcion: descripcion || 'Compra en cuotas', categoria: cat, medio_id: medioRow.id, monto_total: monto,
+        cuotas: nCuotas, empieza_proximo: !!req.body.empieza_proximo });
+      if (req.body.ticket_id) db.prepare("UPDATE tickets SET estado = 'completado' WHERE id = ?").run(req.body.ticket_id);
+      return res.json({ ok: true, plan_id: p.id, cuotas: nCuotas, monto_cuota: p.monto_cuota, categoria: cat, medio: medioRow.nombre,
+        categoria_origen: rc.origen, medio_origen: rm.origen });
+    } catch (e) { return res.status(400).json({ error: e.message }); }
+  }
 
   const info = db.prepare(
     `INSERT INTO movimientos (tipo, monto, medio_pago_id, categoria, descripcion, origen) VALUES (?, ?, ?, ?, ?, 'shortcut')`
@@ -242,8 +264,9 @@ app.get('/api/movimientos-recientes', (req, res) => {
 });
 
 app.put('/api/movimiento/:id', (req, res) => {
-  const { tipo, monto, medio_pago, categoria, descripcion } = req.body;
+  const { tipo, monto, medio_pago, categoria, descripcion, fecha } = req.body;
   const medioRow = medio_pago ? db.prepare('SELECT id FROM medios_pago WHERE nombre = ?').get(medio_pago) : null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')) db.prepare("UPDATE movimientos SET fecha = ? || substr(fecha, 11) WHERE id = ?").run(fecha, req.params.id);
   db.prepare(
     `UPDATE movimientos SET tipo = COALESCE(?, tipo), monto = COALESCE(?, monto), medio_pago_id = COALESCE(?, medio_pago_id),
      categoria = COALESCE(?, categoria), descripcion = COALESCE(?, descripcion) WHERE id = ?`
@@ -323,12 +346,14 @@ app.get('/api/reservas/:id/movimientos', (req, res) => {
 
 // ---------- Dashboard ----------
 app.get('/api/resumen-mes', (req, res) => {
+  cuotas.generarPendientes();
+  const mes = /^\d{4}-\d{2}$/.test(req.query.mes || '') ? req.query.mes : cuotas.mesDe();
   const movs = db.prepare(`
     SELECT m.*, mp.nombre as medio_nombre, mp.moneda
     FROM movimientos m LEFT JOIN medios_pago mp ON mp.id = m.medio_pago_id
-    WHERE strftime('%Y-%m', m.fecha) = strftime('%Y-%m', 'now','localtime')
-    ORDER BY m.fecha DESC
-  `).all();
+    WHERE strftime('%Y-%m', m.fecha) = ?
+    ORDER BY m.fecha DESC, m.id DESC
+  `).all(mes);
 
   const fijos = db.prepare(`
     SELECT gf.*, mp.nombre as medio_nombre, mp.moneda
@@ -354,7 +379,7 @@ app.get('/api/resumen-mes', (req, res) => {
     }
   }
 
-  res.json({ movimientos: movs, fijos, porMoneda, porCategoria, porCategoriaIngreso, porMedio });
+  res.json({ mes, movimientos: movs, fijos, porMoneda, porCategoria, porCategoriaIngreso, porMedio });
 });
 
 app.get('/api/historico', (req, res) => {
@@ -375,6 +400,11 @@ app.get('/api/prompt-analisis', (req, res) => {
 app.post('/api/revisar-fijos', (req, res) => {
   res.json({ agregados: revisarFijos() });
 });
+
+extras.montar(app);
+cuotas.generarPendientes();
+setInterval(cuotas.generarPendientes, 1000 * 60 * 60 * 6);
+extras.backupDiario();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Servidor corriendo en puerto ${PORT}`));
