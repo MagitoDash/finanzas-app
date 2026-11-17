@@ -11,7 +11,7 @@ const { iniciarRevisionDiaria, revisarFijos } = require('./cron');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '12mb' }));
 
 // Evita que el navegador o un proxy/CDN (Cloudflare) sirvan datos viejos del API.
 app.use('/api', (req, res, next) => {
@@ -147,6 +147,10 @@ const registrarMovimiento = (req, res) => {
     `INSERT INTO movimientos (tipo, monto, medio_pago_id, categoria, descripcion, origen) VALUES (?, ?, ?, ?, ?, 'shortcut')`
   ).run(tipo, monto, medioRow ? medioRow.id : null, cat, descripcion || '');
 
+  if (req.body.ticket_id) {
+    db.prepare("UPDATE tickets SET estado = 'completado', movimiento_id = ? WHERE id = ?").run(info.lastInsertRowid, req.body.ticket_id);
+  }
+
   res.json({
     ok: true, id: info.lastInsertRowid, categoria: cat, medio: medioRow ? medioRow.nombre : null,
     categoria_origen: rc.origen, medio_origen: rm.origen,
@@ -165,6 +169,68 @@ app.get('/api/sugerir', (req, res) => {
   const rc = resolverCategoria(tipo, '', d);
   const rm = resolverMedio('', d);
   res.json({ categoria: rc.categoria, categoria_origen: rc.origen, medio: rm.medio ? rm.medio.nombre : null });
+});
+
+
+// ---------- Tickets (fotos para completar después) ----------
+const fs = require('fs');
+const DIR_TICKETS = path.join(__dirname, 'data', 'tickets');
+fs.mkdirSync(DIR_TICKETS, { recursive: true });
+
+// Lectura automática opcional: solo si definís ANTHROPIC_API_KEY en el servidor.
+async function leerTicketConIA(id, base64, mediaType) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+        max_tokens: 300,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: 'Es un ticket o comprobante de Argentina. Respondé SOLO un JSON con: {"monto": número total pagado (sin símbolo, punto decimal), "descripcion": comercio o concepto en pocas palabras, "fecha": "YYYY-MM-DD" o null}. Si no se puede leer, usá null en ese campo.' },
+        ] }],
+      }),
+    });
+    const j = await r.json();
+    const txt = (j.content && j.content[0] && j.content[0].text) || '';
+    const m = txt.match(/\{[\s\S]*\}/);
+    if (m) db.prepare('UPDATE tickets SET datos_ia = ? WHERE id = ?').run(JSON.stringify(JSON.parse(m[0])), id);
+  } catch (e) { console.error('Lectura de ticket falló:', e.message); }
+}
+
+app.post('/api/tickets', (req, res) => {
+  const { imagen, nota } = req.body;
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(imagen || '');
+  if (!m) return res.status(400).json({ error: 'imagen inválida' });
+  const ext = m[1] === 'image/png' ? 'png' : m[1] === 'image/webp' ? 'webp' : 'jpg';
+  const archivo = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+  fs.writeFileSync(path.join(DIR_TICKETS, archivo), Buffer.from(m[2], 'base64'));
+  const info = db.prepare('INSERT INTO tickets (archivo, nota) VALUES (?, ?)').run(archivo, (nota || '').toString().slice(0, 200));
+  leerTicketConIA(info.lastInsertRowid, m[2], m[1]); // en segundo plano
+  res.json({ ok: true, id: info.lastInsertRowid, lectura_automatica: !!process.env.ANTHROPIC_API_KEY });
+});
+
+app.get('/api/tickets', (req, res) => {
+  const estado = req.query.estado === 'completado' ? 'completado' : 'pendiente';
+  res.json(db.prepare('SELECT id, nota, fecha, estado, datos_ia FROM tickets WHERE estado = ? ORDER BY id DESC LIMIT 50').all(estado)
+    .map((t) => ({ ...t, datos_ia: t.datos_ia ? JSON.parse(t.datos_ia) : null })));
+});
+
+app.get('/api/tickets/:id/foto', (req, res) => {
+  const t = db.prepare('SELECT archivo FROM tickets WHERE id = ?').get(req.params.id);
+  if (!t) return res.status(404).end();
+  res.set('Cache-Control', 'private, max-age=86400');
+  res.sendFile(path.join(DIR_TICKETS, t.archivo));
+});
+
+app.delete('/api/tickets/:id', (req, res) => {
+  const t = db.prepare('SELECT archivo FROM tickets WHERE id = ?').get(req.params.id);
+  if (t) { try { fs.unlinkSync(path.join(DIR_TICKETS, t.archivo)); } catch (e) {} }
+  db.prepare('DELETE FROM tickets WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
 });
 
 // Últimos movimientos (para la página del celular).

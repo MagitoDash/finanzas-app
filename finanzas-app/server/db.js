@@ -49,6 +49,16 @@ CREATE TABLE IF NOT EXISTS reservas (
   fecha_creacion TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS tickets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  archivo TEXT NOT NULL,
+  nota TEXT DEFAULT '',
+  fecha TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  estado TEXT NOT NULL DEFAULT 'pendiente',   -- pendiente | completado
+  datos_ia TEXT,                              -- JSON leído automáticamente del ticket (opcional)
+  movimiento_id INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS reglas_categoria ( clave TEXT NOT NULL, tipo TEXT NOT NULL, categoria TEXT NOT NULL, PRIMARY KEY (clave, tipo) );
 CREATE TABLE IF NOT EXISTS movimientos_reserva (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
