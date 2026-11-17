@@ -132,7 +132,7 @@ app.get('/api/categorias', (req, res) => {
 });
 
 // ---------- Movimientos (lo usa el Atajo de iPhone) ----------
-app.post('/api/movimiento', chequearApiKey, (req, res) => {
+const registrarMovimiento = (req, res) => {
   let { tipo, monto, medio_pago, categoria, descripcion } = req.body;
   monto = parseFloat(monto);
   if (!tipo || !['Ingreso', 'Egreso'].includes(tipo)) return res.status(400).json({ error: 'tipo debe ser Ingreso o Egreso' });
@@ -153,6 +153,26 @@ app.post('/api/movimiento', chequearApiKey, (req, res) => {
     // Diagnóstico: lo que mandó realmente el Atajo
     recibido: { tipo, categoria: categoria ?? null, medio_pago: medio_pago ?? null },
   });
+};
+app.post('/api/movimiento', chequearApiKey, registrarMovimiento);
+// Mismo registro pero para la página del celular (/registrar.html), sin API key.
+app.post('/api/registrar', registrarMovimiento);
+
+// Vista previa mientras escribís: qué categoría y medio se asignarían.
+app.get('/api/sugerir', (req, res) => {
+  const tipo = req.query.tipo === 'Ingreso' ? 'Ingreso' : 'Egreso';
+  const d = (req.query.descripcion || '').toString();
+  const rc = resolverCategoria(tipo, '', d);
+  const rm = resolverMedio('', d);
+  res.json({ categoria: rc.categoria, categoria_origen: rc.origen, medio: rm.medio ? rm.medio.nombre : null });
+});
+
+// Últimos movimientos (para la página del celular).
+app.get('/api/movimientos-recientes', (req, res) => {
+  res.json(db.prepare(
+    `SELECT m.id, m.tipo, m.monto, m.categoria, m.descripcion, m.fecha, mp.nombre AS medio
+     FROM movimientos m LEFT JOIN medios_pago mp ON mp.id = m.medio_pago_id
+     ORDER BY m.id DESC LIMIT 8`).all());
 });
 
 app.put('/api/movimiento/:id', (req, res) => {

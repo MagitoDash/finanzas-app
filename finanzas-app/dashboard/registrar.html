@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Registrar">
+<meta name="theme-color" content="#0f1117">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icono.png">
+<title>Registrar</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0f1117;color:#e8e8ea;font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;padding:env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:center;padding:14px 0 8px}
+.top h1{font-size:20px;margin:0}.top a{color:#7ee8b8;text-decoration:none;font-size:14px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:#1a1d27;border-radius:14px;padding:4px;margin:8px 0 14px}
+.seg button{border:0;background:none;color:#9aa0ae;font-size:17px;font-weight:600;padding:12px;border-radius:11px}
+.seg button.on.eg{background:#f07373;color:#fff}.seg button.on.in{background:#4ed8a0;color:#06251a}
+label{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8b91a1;margin:16px 0 6px}
+.monto{display:flex;align-items:center;background:#1a1d27;border-radius:16px;padding:6px 16px}
+.monto span{font-size:34px;color:#8b91a1}
+.monto input{flex:1;min-width:0;background:none;border:0;color:#fff;font-size:44px;font-weight:700;padding:8px;outline:none}
+input.txt{width:100%;background:#1a1d27;border:0;border-radius:14px;color:#fff;font-size:18px;padding:15px 16px;outline:none}
+.sug{margin-top:8px;font-size:14px;color:#8b91a1;min-height:20px}.sug b{color:#7ee8b8}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#1a1d27;border:2px solid transparent;color:#e8e8ea;border-radius:999px;padding:11px 16px;font-size:16px}
+.chip.on{border-color:#7ee8b8;background:#16312a;color:#b8f5da}
+.guardar{width:100%;margin-top:22px;border:0;border-radius:16px;padding:18px;font-size:20px;font-weight:700;background:#7ee8b8;color:#06251a}
+.guardar:disabled{opacity:.5}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));background:#16312a;color:#b8f5da;border-radius:14px;padding:14px 16px;font-size:16px;transform:translateY(140%);transition:.25s;z-index:9}
+.toast.show{transform:none}.toast.err{background:#3a1b1d;color:#ffb4b4}
+.rec{margin-top:26px}.rec h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8b91a1;margin:0 0 8px}
+.mov{display:flex;align-items:center;gap:10px;background:#1a1d27;border-radius:12px;padding:11px 14px;margin-bottom:8px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.mov .d{flex:1;min-width:0}.mov .d div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mov small{color:#8b91a1}.mov .m{font-weight:700}
+.mov button{border:1px solid #5a2a2d;background:none;color:#f07373;border-radius:8px;padding:6px 9px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="top"><h1>Registrar</h1><a href="/">Ver panel →</a></div>
+
+<div class="seg">
+  <button id="bEg" class="on eg" type="button">Egreso</button>
+  <button id="bIn" type="button">Ingreso</button>
+</div>
+
+<label>Monto</label>
+<div class="monto"><span>$</span><input id="monto" type="text" inputmode="decimal" placeholder="0" autocomplete="off"></div>
+
+<label>¿Qué es?</label>
+<input id="desc" class="txt" type="text" placeholder="super, nafta, alquiler, sueldo…" autocomplete="off" autocapitalize="sentences">
+<div class="sug" id="sug"></div>
+
+<label>Medio de pago</label>
+<div class="chips" id="medios"></div>
+
+<label>Categoría <span style="text-transform:none;letter-spacing:0">(Auto la deduce sola)</span></label>
+<div class="chips" id="cats"></div>
+
+<button class="guardar" id="guardar" type="button">Guardar</button>
+
+<div class="rec"><h2>Últimos movimientos</h2><div id="rec"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (n) => '$' + Math.round(n).toLocaleString('es-AR');
+let tipo = 'Egreso', medio = '', cat = '', cats = { egreso: [], ingreso: [] }, medios = [], tSug;
+
+function setTipo(t) {
+  tipo = t; cat = '';
+  $('bEg').className = t === 'Egreso' ? 'on eg' : '';
+  $('bIn').className = t === 'Ingreso' ? 'on in' : '';
+  dibujarCats(); sugerir();
+}
+$('bEg').onclick = () => setTipo('Egreso');
+$('bIn').onclick = () => setTipo('Ingreso');
+
+function dibujarMedios() {
+  $('medios').innerHTML = ['', ...medios.map((m) => m.nombre)].map((n) =>
+    `<button type="button" class="chip ${medio === n ? 'on' : ''}" data-v="${esc(n)}">${n ? esc(n) : 'Auto'}</button>`).join('');
+  $('medios').querySelectorAll('button').forEach((b) => b.onclick = () => { medio = b.dataset.v; dibujarMedios(); });
+}
+function dibujarCats() {
+  const lista = tipo === 'Ingreso' ? cats.ingreso : cats.egreso;
+  $('cats').innerHTML = ['', ...lista].map((n) =>
+    `<button type="button" class="chip ${cat === n ? 'on' : ''}" data-v="${esc(n)}">${n ? esc(n) : 'Auto'}</button>`).join('');
+  $('cats').querySelectorAll('button').forEach((b) => b.onclick = () => { cat = b.dataset.v; dibujarCats(); });
+}
+
+function sugerir() {
+  clearTimeout(tSug);
+  const d = $('desc').value.trim();
+  if (!d) { $('sug').textContent = ''; return; }
+  tSug = setTimeout(async () => {
+    try {
+      const r = await (await fetch('/api/sugerir?tipo=' + tipo + '&descripcion=' + encodeURIComponent(d))).json();
+      $('sug').innerHTML = 'Se guarda como <b>' + esc(r.categoria) + '</b>' + (r.medio ? ' · con <b>' + esc(r.medio) + '</b>' : '');
+    } catch (e) {}
+  }, 250);
+}
+$('desc').addEventListener('input', sugerir);
+
+function toast(msg, err) {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 3200);
+}
+
+async function guardar() {
+  const monto = parseFloat($('monto').value.replace(/\./g, '').replace(',', '.'));
+  if (!monto || monto <= 0) { toast('Poné un monto', true); $('monto').focus(); return; }
+  $('guardar').disabled = true;
+  try {
+    const r = await fetch('/api/registrar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo, monto, descripcion: $('desc').value.trim(), medio_pago: medio, categoria: cat }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Error');
+    toast('✓ ' + fmt(monto) + ' · ' + j.categoria + (j.medio ? ' · ' + j.medio : ''));
+    $('monto').value = ''; $('desc').value = ''; $('sug').textContent = ''; cat = ''; dibujarCats();
+    cargarRecientes();
+  } catch (e) { toast('No se guardó: ' + e.message, true); }
+  $('guardar').disabled = false;
+}
+$('guardar').onclick = guardar;
+
+async function cargarRecientes() {
+  try {
+    const l = await (await fetch('/api/movimientos-recientes')).json();
+    $('rec').innerHTML = l.map((m) => `
+      <div class="mov"><span class="dot" style="background:${m.tipo === 'Ingreso' ? '#4ed8a0' : '#f07373'}"></span>
+      <div class="d"><div>${esc(m.descripcion || m.categoria)}</div><small>${esc(m.categoria)} · ${esc(m.medio || 'sin medio')}</small></div>
+      <div class="m">${m.tipo === 'Ingreso' ? '+' : '−'}${fmt(m.monto)}</div>
+      <button data-id="${m.id}">Borrar</button></div>`).join('') || '<small>Todavía no hay movimientos.</small>';
+    $('rec').querySelectorAll('button').forEach((b) => b.onclick = async () => {
+      if (!confirm('¿Borrar este movimiento?')) return;
+      await fetch('/api/movimiento/' + b.dataset.id, { method: 'DELETE' }); cargarRecientes();
+    });
+  } catch (e) {}
+}
+
+(async () => {
+  try { medios = await (await fetch('/api/medios')).json(); } catch (e) {}
+  try { cats = await (await fetch('/api/categorias')).json(); } catch (e) {}
+  dibujarMedios(); dibujarCats(); cargarRecientes();
+})();
+</script>
+</body>
+</html>
